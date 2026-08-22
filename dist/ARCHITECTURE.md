@@ -1,4 +1,4 @@
-# Pantry architecture
+# Mise & Meal architecture
 
 - Frontend: responsive, dependency-free SPA for the laptop-friendly MVP; components are separated by product surface.
 - Backend: a Worker-style HTTP API is the intended boundary for recipes, inventory, plans, shopping, and cooking sessions.
