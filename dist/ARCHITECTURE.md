@@ -2,6 +2,7 @@
 
 - Frontend: responsive, dependency-free SPA for the laptop-friendly MVP; components are separated by product surface.
 - Backend: a Worker-style HTTP API is the intended boundary for recipes, inventory, plans, shopping, and cooking sessions.
+- Supabase client: `supabase-client.js` provides the reusable browser client. The current Ruby copy build has no environment-variable substitution, so public project configuration is read from the Git-ignored `supabase-config.local.js` file when present.
 - Database: SQLite locally and Cloudflare D1 when hosted, using `db/schema.sql`. PostgreSQL is the natural multi-user upgrade.
 - Authentication: single-owner local mode for MVP; use private hosted access until per-user sign-in is introduced. Tables already carry `user_id`.
 - Images: URL cover images initially; an object-storage adapter can later hold uploads.
