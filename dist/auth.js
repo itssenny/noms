@@ -8,7 +8,7 @@ const authSubmit = document.querySelector('#auth-submit');
 const authTitle = document.querySelector('#auth-title');
 const authCopy = document.querySelector('#auth-copy');
 const accountEmail = document.querySelector('#account-email');
-const signOutButton = document.querySelector('#sign-out');
+const profileButton = document.querySelector('#profile-button');
 let authMode = 'signin';
 
 function setMessage(message, isError = false) {
@@ -44,7 +44,7 @@ function showSession(session) {
     return;
   }
   accountEmail.textContent = user.email || '';
-  signOutButton.textContent = (user.email || 'MM').slice(0, 2).toUpperCase();
+  profileButton.textContent = (user.email || 'MM').slice(0, 2).toUpperCase();
   setMessage('');
 }
 
@@ -76,13 +76,6 @@ authForm.addEventListener('submit', async event => {
     return;
   }
   showSession(result.data.session);
-});
-
-signOutButton.addEventListener('click', async () => {
-  signOutButton.disabled = true;
-  const { error } = await supabase.auth.signOut();
-  signOutButton.disabled = false;
-  if (error) setMessage(error.message, true);
 });
 
 if (!isSupabaseConfigured) {

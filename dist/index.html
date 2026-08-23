@@ -40,7 +40,7 @@
         <button class="nav-item" data-view="inventory">Inventory</button>
         <button class="nav-item" data-view="shopping">Shopping</button>
       </nav>
-      <div class="account-actions"><span id="account-email"></span><button class="avatar" id="sign-out" aria-label="Sign out" title="Sign out">SW</button></div>
+      <div class="account-actions"><span id="account-email"></span><button class="avatar" id="profile-button" data-view="profile" aria-label="Open profile" title="Profile">MM</button></div>
     </header>
 
     <main id="app">
@@ -78,6 +78,7 @@
       <section class="view" id="planner-view"></section>
       <section class="view" id="inventory-view"></section>
       <section class="view" id="shopping-view"></section>
+      <section class="view" id="profile-view"></section>
       <section class="view" id="detail-view"></section>
       <section class="view cooking-view" id="cooking-view"></section>
     </main>
@@ -86,6 +87,7 @@
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="supabase-config.local.js"></script>
   <script type="module" src="app.js"></script>
+  <script type="module" src="profile.js"></script>
   <script type="module" src="auth.js"></script>
 </body>
 </html>
