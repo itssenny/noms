@@ -12,7 +12,25 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app-shell">
+  <section class="auth-view" id="auth-view" aria-labelledby="auth-title">
+    <div class="auth-card">
+      <a class="brand auth-brand" href="#" aria-label="Mise & Meal"><span class="brand-mark">M</span><span>Mise & Meal</span></a>
+      <p class="eyebrow">YOUR KITCHEN, IN RHYTHM</p>
+      <h1 id="auth-title">Welcome back.</h1>
+      <p class="auth-copy" id="auth-copy">Sign in to open your kitchen.</p>
+      <div class="auth-tabs" aria-label="Authentication mode">
+        <button class="active" type="button" data-auth-mode="signin">Sign in</button>
+        <button type="button" data-auth-mode="signup">Create account</button>
+      </div>
+      <form id="auth-form">
+        <label>Email<input name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"></label>
+        <button class="primary-btn auth-submit" id="auth-submit">Sign in</button>
+      </form>
+      <p class="auth-message" id="auth-message" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+  <div class="app-shell" id="app-shell" hidden>
     <header class="topbar">
       <a class="brand" href="#" aria-label="Mise & Meal home"><span class="brand-mark">M</span><span>Mise & Meal</span></a>
       <nav class="main-nav" aria-label="Primary">
@@ -22,7 +40,7 @@
         <button class="nav-item" data-view="inventory">Inventory</button>
         <button class="nav-item" data-view="shopping">Shopping</button>
       </nav>
-      <button class="avatar" aria-label="Open profile">SW</button>
+      <div class="account-actions"><span id="account-email"></span><button class="avatar" id="sign-out" aria-label="Sign out" title="Sign out">SW</button></div>
     </header>
 
     <main id="app">
@@ -68,5 +86,6 @@
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="supabase-config.local.js"></script>
   <script type="module" src="app.js"></script>
+  <script type="module" src="auth.js"></script>
 </body>
 </html>
