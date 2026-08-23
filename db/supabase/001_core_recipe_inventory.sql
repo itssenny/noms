@@ -18,6 +18,7 @@ create table public.recipes (
   image_url text,
   cuisine text,
   tags jsonb not null default '[]'::jsonb check (jsonb_typeof(tags) = 'array'),
+  total_minutes integer check (total_minutes is null or total_minutes >= 0),
   prep_minutes integer check (prep_minutes is null or prep_minutes >= 0),
   cook_minutes integer check (cook_minutes is null or cook_minutes >= 0),
   difficulty text,
