@@ -5,7 +5,7 @@ FileUtils.rm_rf('dist')
 FileUtils.mkdir_p('dist/db')
 FileUtils.mkdir_p('dist/server')
 FileUtils.mkdir_p('dist/.openai')
-%w[index.html styles.css app.js auth.js profile.js supabase-client.js supabase-config.example.js ARCHITECTURE.md].each{|f|FileUtils.cp(f,"dist/#{f}")}
+%w[index.html styles.css app.js ingredients.js auth.js profile.js supabase-client.js supabase-config.example.js ARCHITECTURE.md].each{|f|FileUtils.cp(f,"dist/#{f}")}
 
 supabase_url = ENV['SUPABASE_URL']
 supabase_publishable_key = ENV['SUPABASE_PUBLISHABLE_KEY']
@@ -22,6 +22,7 @@ elsif File.exist?('supabase-config.local.js')
 end
 
 FileUtils.cp('db/schema.sql','dist/db/schema.sql')
+FileUtils.cp('db/CANONICAL_INGREDIENTS.md','dist/db/CANONICAL_INGREDIENTS.md')
 FileUtils.cp_r('db/supabase','dist/db/supabase')
 FileUtils.cp('.openai/hosting.json','dist/.openai/hosting.json')
 File.write('dist/server/index.js', <<~JS)
