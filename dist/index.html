@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#f7f3e9" />
-  <meta name="description" content="Mise & Meal — recipes, meal planning, shopping and guided cooking in one warm kitchen workspace." />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="description" content="Mise & Meal — recipes, meal planning, shopping and guided cooking in your colourful kitchen workspace." />
   <title>Mise & Meal — Your kitchen, in rhythm</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="atelier.css" />
 </head>
 <body>
   <section class="auth-view" id="auth-view" aria-labelledby="auth-title">
     <div class="auth-card">
-      <a class="brand auth-brand" href="#" aria-label="Mise & Meal"><span class="brand-mark">M</span><span>Mise & Meal</span></a>
-      <p class="eyebrow">YOUR KITCHEN, IN RHYTHM</p>
-      <h1 id="auth-title">Welcome back.</h1>
+      <a class="brand auth-brand" href="#" aria-label="Mise & Meal"><span class="brand-mark" aria-hidden="true"></span><span>mise &amp; meal</span></a>
+      <p class="eyebrow">MAKE YOURSELF AT HOME</p>
+      <h1 id="auth-title">Your kitchen is open.</h1>
       <p class="auth-copy" id="auth-copy">Sign in to open your kitchen.</p>
       <div class="auth-tabs" aria-label="Authentication mode">
         <button class="active" type="button" data-auth-mode="signin">Sign in</button>
@@ -32,45 +33,40 @@
   </section>
   <div class="app-shell" id="app-shell" hidden>
     <header class="topbar">
-      <a class="brand" href="#" aria-label="Mise & Meal home"><span class="brand-mark">M</span><span>Mise & Meal</span></a>
+      <a class="brand" data-view="home" href="#" aria-label="Mise & Meal home"><span class="brand-mark" aria-hidden="true"></span><span>mise &amp; meal</span></a>
       <nav class="main-nav" aria-label="Primary">
-        <button class="nav-item active" data-view="home">Home</button>
-        <button class="nav-item" data-view="recipes">Recipes</button>
-        <button class="nav-item" data-view="planner">Meal plan</button>
-        <button class="nav-item" data-view="inventory">Inventory</button>
-        <button class="nav-item" data-view="shopping">Shopping</button>
+        <button class="nav-item active" data-view="home"><i data-icon="house"></i><span>Home</span></button>
+        <button class="nav-item" data-view="recipes"><i data-icon="book"></i><span>Recipes</span></button>
+        <button class="nav-item" data-view="planner"><i data-icon="calendar"></i><span>Meal plan</span></button>
+        <button class="nav-item" data-view="inventory"><i data-icon="fridge"></i><span>Inventory</span></button>
+        <button class="nav-item" data-view="shopping"><i data-icon="bag"></i><span>Shopping</span></button>
       </nav>
       <div class="account-actions"><span id="account-email"></span><button class="avatar" id="profile-button" data-view="profile" aria-label="Open profile" title="Profile">MM</button></div>
     </header>
 
     <main id="app">
       <section class="view active" id="home-view">
-        <div class="hero">
-          <div>
-            <p class="eyebrow" id="today-label"></p>
-            <h1>Good afternoon,<br><em>what's cooking?</em></h1>
-            <p class="hero-copy" id="kitchen-summary"></p>
-            <button class="primary-btn" data-action="cook-now">See what I can cook <span>→</span></button>
-          </div>
-          <div class="hero-art" aria-hidden="true">
-            <div class="plate"><div class="pasta">〰<br>〰〰<br>〰</div><i class="leaf l1"></i><i class="leaf l2"></i><i class="tomato"></i></div>
+        <div class="home-intro">
+          <div><p class="eyebrow" id="today-label"></p><h1>Good things on the menu.</h1><p id="kitchen-summary"></p></div>
+          <button class="primary-btn" data-action="add-recipe"><i data-icon="plus"></i>Add recipe</button>
+        </div>
+        <div class="home-dashboard">
+          <div id="home-pick" class="home-pick"></div>
+          <div class="home-sidebar">
+            <section class="panel week-panel">
+              <div class="section-heading"><div><h2>Make a date.</h2><p>Your weekly menu</p></div><button class="round-btn" data-view="planner" aria-label="Open meal plan"><i data-icon="arrow"></i></button></div>
+              <div class="meal-strip" id="home-meals"></div>
+              <button class="text-btn week-add" data-action="plan-meal">＋ Plan something good</button>
+            </section>
+            <section class="panel low-panel">
+              <div class="section-heading"><div><h2>A little top-up.</h2><p>The ingredients running low</p></div><span class="count-pill" id="low-count">0</span></div>
+              <div id="low-stock-list"></div>
+              <button class="full-soft-btn" data-action="add-low">Add to shopping <span aria-hidden="true">↗</span></button>
+            </section>
           </div>
         </div>
-
-        <div class="dashboard-grid">
-          <section class="panel week-panel">
-            <div class="section-heading"><div><p class="eyebrow">THIS WEEK</p><h2>On the menu</h2></div><button class="text-btn" data-view="planner">View meal plan →</button></div>
-            <div class="meal-strip" id="home-meals"></div>
-          </section>
-          <section class="panel low-panel">
-            <div class="section-heading"><div><p class="eyebrow coral">MISE & MEAL CHECK</p><h2>Running low</h2></div><span class="count-pill" id="low-count">0</span></div>
-            <div id="low-stock-list"></div>
-            <button class="full-soft-btn" data-action="add-low">Add all to shopping list</button>
-          </section>
-        </div>
-
         <section class="recipe-section">
-          <div class="section-heading"><div><p class="eyebrow">READY WHEN YOU ARE</p><h2 id="home-recipes-title">Your recipes</h2></div><button class="text-btn" data-view="recipes">Browse all recipes →</button></div>
+          <div class="section-heading"><div><h2 id="home-recipes-title">Your little black cookbook</h2><p>The recipes you return to.</p></div><button class="text-btn" data-view="recipes">View all recipes ↗</button></div>
           <div class="recipe-grid" id="home-recipes"></div>
         </section>
       </section>

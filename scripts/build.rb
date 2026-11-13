@@ -5,7 +5,7 @@ FileUtils.rm_rf('dist')
 FileUtils.mkdir_p('dist/db')
 FileUtils.mkdir_p('dist/server')
 FileUtils.mkdir_p('dist/.openai')
-%w[index.html styles.css app.js catalogue.js calendar.mjs account-state.mjs cooking.mjs ingredients.js auth.js profile.js supabase-client.js supabase-config.example.js ARCHITECTURE.md].each{|f|FileUtils.cp(f,"dist/#{f}")}
+%w[index.html styles.css atelier.css ui.js app.js catalogue.js calendar.mjs account-state.mjs cooking.mjs ingredients.js auth.js profile.js supabase-client.js supabase-config.example.js ARCHITECTURE.md].each{|f|FileUtils.cp(f,"dist/#{f}")}
 
 supabase_url = ENV['SUPABASE_URL']
 supabase_publishable_key = ENV['SUPABASE_PUBLISHABLE_KEY']
