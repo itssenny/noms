@@ -19,8 +19,8 @@ export function recipeChecks(recipe,inventory,servings=recipe.servings,rules=[],
  return recipe.ingredients.map(([originalName,qty,unit,note,originalId])=>{
   const flexible=qty===null||qty===undefined,key=originalId||originalName;
   const alternatives=Object.entries(inventory).flatMap(([name,item])=>{
-   if(!(item.qty>0)||!item.ingredientId||!originalId||!rules.some(rule=>rule.ingredient_id===originalId&&rule.substitute_id===item.ingredientId))return [];
-   const compatible=flexible||convertQuantity(item.qty,item.unit,unit)!==null;
+   if(!(item.qty===null||item.qty>0)||!item.ingredientId||!originalId||!rules.some(rule=>rule.ingredient_id===originalId&&rule.substitute_id===item.ingredientId))return [];
+   const compatible=item.qty===null||flexible||convertQuantity(item.qty,item.unit,unit)!==null;
    const reserved=directIds.has(item.ingredientId)||used.has(item.ingredientId);
    return [{id:item.ingredientId,name,qty:item.qty,unit:item.unit,compatible,available:compatible&&!reserved,reason:!compatible?'Different units — use matching stock units':reserved?'Already used by another ingredient':''}];
   });
@@ -30,14 +30,14 @@ export function recipeChecks(recipe,inventory,servings=recipe.servings,rules=[],
   const [inventoryKey,item]=entry||[];
   if(selected)used.add(selected.id);
   const metadata={name,originalName,originalId,choiceKey:key,substituted:!!selected,invalidChoice:!!choices[key]&&!selected,alternatives,unit,note,ingredientId,item,inventoryKey};
-  if(flexible)return {...metadata,need:null,have:item?.qty||0,missing:null,isFlexible:true,compatible:true,status:item?.qty>0?'ready':'missing'};
-  const need=qty*servings/recipe.servings,converted=item?convertQuantity(item.qty,item.unit,unit):0;
+  if(flexible)return {...metadata,need:null,have:item?.qty||0,missing:null,isFlexible:true,compatible:true,status:item&&(item.qty===null||item.qty>0)?'ready':'missing'};
+  const need=qty*servings/recipe.servings;if(item?.qty===null)return {...metadata,need,have:null,missing:null,compatible:true,quantityUnknown:true,status:'ready'};const converted=item?convertQuantity(item.qty,item.unit,unit):0;
   const compatible=converted!==null,have=converted??0,missing=Math.max(0,need-have);
   return {...metadata,need,have,missing,compatible,status:missing===0?(item&&item.qty<=item.threshold?'low':'ready'):(have>0?'partial':'missing')};
  });
 }
 export function remainingInventory(check){
- if(check.invalidChoice||check.isFlexible||!check.item||!check.compatible)return null;
+ if(check.invalidChoice||check.quantityUnknown||check.item?.qty===null||check.isFlexible||!check.item||!check.compatible)return null;
  const used=convertQuantity(check.need,check.unit,check.item.unit);
  if(used===null)return null;
  return {before:check.item.qty,after:Number(Math.max(0,check.item.qty-used).toFixed(8)),unit:check.item.unit};

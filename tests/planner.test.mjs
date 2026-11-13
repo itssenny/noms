@@ -10,7 +10,7 @@ const recipe={id:'recipe-a',name:'Rice bowl',servings:2};
 function form(values){return {get:key=>key in values?values[key]:null,getAll:key=>values[key]||[]}}
 function setup(){
  const store=new Map(),storage={getItem:key=>store.get(key)||null,setItem:(key,value)=>store.set(key,value)};
- const context=vm.createContext({...planning,currentWeek,plannedSubstitutions:()=>({}),plannerMonday:planning.dateKey(currentWeek()[0]),plans:[{id:123,recipe:recipe.id,day:'Monday',slot:'Dinner',servings:2}],shopping:[{name:'Rice',qty:50,unit:'g',sources:['Manual'],checked:false}],recipes:[recipe],crypto:{randomUUID:()=> 'new-id'},checks:(r,s)=>[{name:'Rice',missing:100*s/r.servings,unit:'g'}],saveState:()=>{writeAccountState(storage,'a',{plans:context.plans,shopping:context.shopping});return true}});
+ const context=vm.createContext({...planning,currentWeek,plannedSubstitutions:()=>({}),plannedLeftoverSource:()=>null,plannerMonday:planning.dateKey(currentWeek()[0]),plans:[{id:123,recipe:recipe.id,day:'Monday',slot:'Dinner',servings:2}],shopping:[{name:'Rice',qty:50,unit:'g',sources:['Manual'],checked:false}],recipes:[recipe],crypto:{randomUUID:()=> 'new-id'},checks:(r,s)=>[{name:'Rice',missing:100*s/r.servings,unit:'g'}],saveState:()=>{writeAccountState(storage,'a',{plans:context.plans,shopping:context.shopping});return true}});
  vm.runInContext(source.slice(source.indexOf('function savePlannedMeal('),source.indexOf('const recipeUnits')),context);
  // addShop lives after these planner helpers.
  const start=source.indexOf('function addShop(');vm.runInContext(source.slice(start,source.indexOf('\n',start)),context);
@@ -56,4 +56,9 @@ test('meal substitutions persist with the meal and pass through to shopping calc
  let chosen;c.checks=(recipe,servings,choices)=>{chosen=choices;return []};
  c.savePlannedMeal(form({recipe:recipe.id,day:'Monday',slot:'Dinner',servings:'2'}));
  assert.equal(chosen.tomato,'cherry');assert.equal(readAccountState(storage,'a').plans.at(-1).substitutions.tomato,'cherry');
+});
+test('leftovers never add shopping even if old or submitted purchase selections exist',()=>{
+ const {context:c,storage}=setup();c.plannedLeftoverSource=()=>123;const before=JSON.stringify(c.shopping);
+ c.savePlannedMeal(form({recipe:recipe.id,day:'Tuesday',slot:'Lunch',servings:'2','is-leftover':'on',missing:['0']}));
+ assert.equal(JSON.stringify(c.shopping),before);const leftover=readAccountState(storage,'a').plans.at(-1);assert.equal(leftover.isLeftover,true);assert.equal(leftover.leftoverOf,123);assert.equal(leftover.slot,'Lunch');assert.equal(leftover.id,'new-id');
 });

@@ -1,7 +1,7 @@
 import { supabase } from './supabase-client.js';
 
 export const units = ['piece','g','kg','ml','l','clove','tsp','tbsp','cup','pinch','can','package','bunch','pcs','pack','loaf','other'];
-export const ingredientCategories=['Vegetables','Fruits','Meat','Fish & Seafood','Dairy','Eggs','Carbohydrates','Canned Goods','Sauces & Condiments','Other'];
+export const ingredientCategories=['Vegetables','Fruits','Meat','Fish & Seafood','Dairy','Eggs','Carbohydrates','Canned Goods','Sauces & Condiments','Spices','Herbs','Other'];
 export const escapeIngredientHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function catalogueError(error){
  if(['42703','PGRST204'].includes(error?.code)||/default_unit|created_by|normalized_name/.test(error?.message||''))return 'The ingredient catalogue needs database update 007_editable_ingredient_catalogue.sql. Apply it in Supabase, then retry.';
@@ -80,7 +80,7 @@ function choose(picker, index) {
   state.version++;
   clearTimeout(state.timer);
   picker.querySelector('input').value = ingredient.canonical_name;
-  picker.querySelector('[role="status"]').textContent = `Selected: ${ingredient.canonical_name}`;
+  picker.querySelector('[role="status"]').textContent = '';
   const scope = picker.closest('.recipe-ingredient-input') || picker.closest('form');
   const unit = scope.querySelector('select[name="ingredient-unit"],select[name="unit"]');
   const suggested = ingredient.default_unit || 'piece';

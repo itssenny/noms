@@ -22,3 +22,9 @@ test('supported unit conversions and insufficient stock remain safe',()=>{
  const [row]=recipeChecks(recipe,{Rice:{ingredientId:'rice',qty:0.1,unit:'kg'}});
  assert.equal(row.missing,100);assert.equal(remainingInventory(row).after,0);
 });
+
+test('stock with an unspecified amount counts as present without inventing a deduction',()=>{
+ const inventory={Rice:{ingredientId:'rice',qty:null,unit:'g',threshold:250}};
+ const [row]=recipeChecks(recipe,inventory);assert.equal(row.status,'ready');assert.equal(row.quantityUnknown,true);assert.equal(row.missing,null);assert.equal(remainingInventory(row),null);
+ const [flexible]=recipeChecks({...recipe,ingredients:[['Rice',null,'g','','rice']]},inventory);assert.equal(flexible.status,'ready');assert.equal(remainingInventory(flexible),null);
+});

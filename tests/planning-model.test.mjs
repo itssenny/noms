@@ -45,3 +45,8 @@ test('plans in separate weeks persist without repeating or overwriting one anoth
  writeAccountState(storage,'user',{plans,shopping:[]});assert.deepEqual(readAccountState(storage,'user').plans,plans);
  assert.equal(plans.filter(p=>p.date===dateForDay('Monday','2026-11-09')).length,1);
 });
+test('received and pending shopping items never count as new purchase coverage',()=>{
+ for(const state of [{receivedPurchase:true},{pendingPurchase:{quantity:150}}]){
+  const cart=[{ingredientId:'cream',name:'Cream',qty:150,unit:'ml',checked:false,...state}];assert.equal(cartCoverage(rows[0],cart),0);const next=addSelectedIngredients(cart,rows,['0'],recipes[0],recipes);assert.equal(next.length,2);assert.equal(next[1].qty,150);
+ }
+});

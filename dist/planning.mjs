@@ -13,7 +13,7 @@ export function migratePlans(plans,now=new Date()){const monday=dateKey(currentW
 export function sourceIds(item,recipes){return Array.isArray(item.sourceIds)?item.sourceIds:recipes.filter(recipe=>(item.sources||[]).includes(recipe.name)).map(recipe=>recipe.id)}
 export function sourceRecipes(item,recipes){const ids=sourceIds(item,recipes);return recipes.filter(recipe=>ids.includes(recipe.id))}
 export function cleanRecipeSources(item,recipes){const matched=sourceRecipes(item,recipes);return {...item,sourceIds:matched.map(recipe=>recipe.id),sources:matched.map(recipe=>recipe.name)}}
-export function cartMatches(row,item){return !item.checked&&(row.ingredientId&&item.ingredientId?row.ingredientId===item.ingredientId:row.name.trim().toLowerCase()===item.name.trim().toLowerCase())}
+export function cartMatches(row,item){return !item.checked&&item.inventoryMode!=='skip'&&!item.receivedPurchase&&!item.pendingPurchase&&(row.ingredientId&&item.ingredientId?row.ingredientId===item.ingredientId:row.name.trim().toLowerCase()===item.name.trim().toLowerCase())}
 export function cartCoverage(row,shopping){return shopping.filter(item=>cartMatches(row,item)).reduce((sum,item)=>sum+(convertQuantity(item.qty,item.unit,row.unit)??0),0)}
 export function purchaseQuantity(row){return row.missing>0?row.missing:row.need}
 // Top up the selected amount rather than duplicating an amount already on the list.
@@ -37,3 +37,12 @@ export function addSelectedIngredients(shopping,rows,indices,recipe,recipes=[rec
 }
 
 export function detachRecipeSources(shopping,id,recipes){return shopping.map(item=>{const resolved=cleanRecipeSources(item,recipes);return cleanRecipeSources({...resolved,sourceIds:resolved.sourceIds.filter(source=>source!==id)},recipes.filter(recipe=>recipe.id!==id))})}
+
+export const mealSlots=['Breakfast','Lunch','Dinner','Snack'];
+export function moveMeal(plans,id,date,slot){
+ const parsed=parseDate(date),index=plans.findIndex(plan=>String(plan.id)===String(id));
+ if(index<0)throw new Error('This meal is no longer in your plan.');
+ const chosenSlot=slot||plans[index].slot;
+ if(![...mealSlots,'Brunch'].includes(chosenSlot))throw new Error('Choose a valid meal.');
+ return plans.map((plan,i)=>i===index?{...plan,date,day:weekdays[(parsed.getDay()+6)%7],slot:chosenSlot}:plan);
+}
