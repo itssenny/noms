@@ -84,8 +84,9 @@ function choose(picker, index) {
   const scope = picker.closest('.recipe-ingredient-input') || picker.closest('form');
   const unit = scope.querySelector('select[name="ingredient-unit"],select[name="unit"]');
   const suggested = ingredient.default_unit || 'piece';
+  if(unit){
   if (![...unit.options].some(option => option.value === suggested)) unit.add(new Option(suggested, suggested));
-  unit.value = suggested;
+  unit.value = suggested;}
   const quantity=scope.querySelector('[name="ingredient-quantity"]');if(quantity)quantity.disabled=['as needed','to taste'].includes(suggested);
   close(picker);
   picker.querySelector('input').focus();

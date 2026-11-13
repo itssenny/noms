@@ -1,5 +1,6 @@
+import {substitutionRules,substitutionIssue,loadSubstitutions,addSubstitution,removeSubstitution} from './substitutions.js';
 import {supabase} from './supabase-client.js';
-import {units,ingredientCategories,escapeIngredientHtml as html,catalogueError,saveCatalogueIngredient} from './ingredients.js';
+import {units,ingredientCategories,ingredientPicker,selectedIngredient,escapeIngredientHtml as html,catalogueError,saveCatalogueIngredient} from './ingredients.js';
 let version=0,rows=[],owner=null;
 export function clearCatalogue(){version++;rows=[];owner=null}
 export async function catalogueView(){
@@ -12,9 +13,9 @@ export async function catalogueView(){
   const result=await supabase.from('ingredients').select('id,canonical_name,category,default_unit,created_by').order('canonical_name').limit(1000);
   if(current!==version)return;
   if(result.error)throw new Error(catalogueError(result.error));
-  owner=auth.user.id;rows=result.data||[];
-  view.innerHTML=`<button class="back-btn" data-view="inventory">← Back to inventory</button><div class="page-head"><div><p class="eyebrow">YOUR INGREDIENTS</p><h1>Ingredient catalogue</h1><p>Browse shared ingredients and add or edit your own. Default units are suggestions; saved recipe and stock quantities stay as entered.</p></div><button class="primary-btn" data-catalogue-new>Add ingredient</button></div><div id="catalogue-editor"></div><label class="search">Search ingredients<input id="catalogue-search" placeholder="e.g. Pasta"></label><p id="catalogue-count"></p><div id="catalogue-list" class="panel"></div>`;
-  renderRows('');
+  owner=auth.user.id;rows=result.data||[];await loadSubstitutions(owner);if(current!==version)return;
+  view.innerHTML=`<button class="back-btn" data-view="inventory">← Back to inventory</button><div class="page-head"><div><p class="eyebrow">YOUR INGREDIENTS</p><h1>Ingredient catalogue</h1><p>Browse shared ingredients and add or edit your own. Default units are suggestions; saved recipe and stock quantities stay as entered.</p></div><button class="primary-btn" data-catalogue-new>Add ingredient</button></div><section id="substitution-settings" class="panel substitution-settings"></section><div id="catalogue-editor"></div><label class="search">Search ingredients<input id="catalogue-search" placeholder="e.g. Pasta"></label><p id="catalogue-count"></p><div id="catalogue-list" class="panel"></div>`;
+  renderRows('');renderSubstitutions();
  }catch(error){if(current===version)view.innerHTML=`<button class="back-btn" data-view="inventory">← Back to inventory</button><h1>Ingredient catalogue</h1><p role="alert">${html(error.message)}</p><button class="secondary-btn" data-catalogue-retry>Retry</button>`}
 }
 function renderRows(query){
@@ -47,4 +48,26 @@ document.addEventListener('submit',async event=>{
   window.dispatchEvent(new CustomEvent('mise-catalogue-updated'));
   await catalogueView();
  }catch(error){if(form.isConnected&&current===version)status.textContent=error.message}finally{button.disabled=false}
+});
+
+function renderSubstitutions(){
+ const section=document.querySelector('#substitution-settings');if(!section)return;
+ const issue=substitutionIssue(),names=new Map(rows.map(row=>[row.id,row.canonical_name]));
+ section.innerHTML=`<h2>Ingredient substitutions</h2><p>Choose what can replace an ingredient, one way only and in the same amount. You still confirm each substitution when planning or cooking.</p>${issue?`<p role="status">${html(issue)}</p>`:`<div class="substitution-rules">${substitutionRules().map(rule=>`<div><span>For <strong>${html(names.get(rule.ingredient_id)||'Ingredient')}</strong>, use <strong>${html(names.get(rule.substitute_id)||'Ingredient')}</strong></span>${rule.user_id===owner?`<button type="button" class="text-btn" data-remove-substitution="${html(rule.id)}">Remove</button>`:'<small>Starter rule</small>'}</div>`).join('')||'<p>No substitutions yet.</p>'}</div><form id="substitution-form"><div class="form-grid"><div><p>Recipe asks for</p>${ingredientPicker('substitution-original')}</div><div><p>You can use instead</p>${ingredientPicker('substitution-alternative')}</div></div><p class="quantity-hint">Use rules for ingredients that work in equal amounts. Different units need a known conversion (for example, kg to g); pieces cannot be guessed as grams.</p><button class="secondary-btn">Add substitution</button><p role="status" data-substitution-status></p></form>`}`;
+}
+document.addEventListener('submit',async event=>{
+ if(event.target.id!=='substitution-form')return;event.preventDefault();
+ const form=event.target,button=form.querySelector('button[type="submit"],button.secondary-btn'),status=form.querySelector('[data-substitution-status]'),current=version;
+ if(button.disabled)return;button.disabled=true;
+ try{
+  const pickers=form.querySelectorAll('.ingredient-picker');
+  await addSubstitution(selectedIngredient(pickers[0]).id,selectedIngredient(pickers[1]).id);
+  if(current!==version)return;renderSubstitutions();window.dispatchEvent(new CustomEvent('mise-substitutions-updated'));
+ }catch(error){if(form.isConnected)status.textContent=error.message}finally{button.disabled=false}
+});
+document.addEventListener('click',async event=>{
+ const button=event.target.closest('[data-remove-substitution]');if(!button||button.disabled)return;
+ const current=version;button.disabled=true;
+ try{await removeSubstitution(button.dataset.removeSubstitution);if(current!==version)return;renderSubstitutions();window.dispatchEvent(new CustomEvent('mise-substitutions-updated'))}
+ catch(error){if(button.isConnected){button.disabled=false;const message=document.createElement('p');message.role='alert';message.textContent=error.message;button.after(message)}}
 });

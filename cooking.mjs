@@ -14,18 +14,30 @@ export function quantityLabel(quantity,unit,scale=1){
  return `${Number((quantity*scale).toFixed(3))} ${unit}`;
 }
 export function needsPurchase(row){return row.isFlexible?row.status==='missing':row.missing>0}
-export function recipeChecks(recipe,inventory,servings=recipe.servings){
- return recipe.ingredients.map(([name,qty,unit,note,ingredientId])=>{
+export function recipeChecks(recipe,inventory,servings=recipe.servings,rules=[],choices={}){
+ const directIds=new Set(recipe.ingredients.map(row=>row[4]).filter(Boolean)),used=new Set();
+ return recipe.ingredients.map(([originalName,qty,unit,note,originalId])=>{
+  const flexible=qty===null||qty===undefined,key=originalId||originalName;
+  const alternatives=Object.entries(inventory).flatMap(([name,item])=>{
+   if(!(item.qty>0)||!item.ingredientId||!originalId||!rules.some(rule=>rule.ingredient_id===originalId&&rule.substitute_id===item.ingredientId))return [];
+   const compatible=flexible||convertQuantity(item.qty,item.unit,unit)!==null;
+   const reserved=directIds.has(item.ingredientId)||used.has(item.ingredientId);
+   return [{id:item.ingredientId,name,qty:item.qty,unit:item.unit,compatible,available:compatible&&!reserved,reason:!compatible?'Different units — use matching stock units':reserved?'Already used by another ingredient':''}];
+  });
+  const selected=alternatives.find(candidate=>candidate.id===choices[key]&&candidate.available);
+  const ingredientId=selected?.id||originalId,name=selected?.name||originalName;
   const entry=ingredientId?Object.entries(inventory).find(([,item])=>item.ingredientId===ingredientId):Object.entries(inventory).find(([key])=>key===name);
   const [inventoryKey,item]=entry||[];
-  if(qty===null||qty===undefined)return {name,need:null,have:item?.qty||0,missing:null,unit,note,ingredientId,item,inventoryKey,isFlexible:true,compatible:true,status:item?.qty>0?'ready':'missing'};
+  if(selected)used.add(selected.id);
+  const metadata={name,originalName,originalId,choiceKey:key,substituted:!!selected,invalidChoice:!!choices[key]&&!selected,alternatives,unit,note,ingredientId,item,inventoryKey};
+  if(flexible)return {...metadata,need:null,have:item?.qty||0,missing:null,isFlexible:true,compatible:true,status:item?.qty>0?'ready':'missing'};
   const need=qty*servings/recipe.servings,converted=item?convertQuantity(item.qty,item.unit,unit):0;
   const compatible=converted!==null,have=converted??0,missing=Math.max(0,need-have);
-  return {name,need,have,missing,unit,note,ingredientId,item,inventoryKey,compatible,status:missing===0?(item&&item.qty<=item.threshold?'low':'ready'):(have>0?'partial':'missing')};
+  return {...metadata,need,have,missing,compatible,status:missing===0?(item&&item.qty<=item.threshold?'low':'ready'):(have>0?'partial':'missing')};
  });
 }
 export function remainingInventory(check){
- if(check.isFlexible||!check.item||!check.compatible)return null;
+ if(check.invalidChoice||check.isFlexible||!check.item||!check.compatible)return null;
  const used=convertQuantity(check.need,check.unit,check.item.unit);
  if(used===null)return null;
  return {before:check.item.qty,after:Number(Math.max(0,check.item.qty-used).toFixed(8)),unit:check.item.unit};

@@ -10,7 +10,7 @@ const recipe={id:'recipe-a',name:'Rice bowl',servings:2};
 function form(values){return {get:key=>key in values?values[key]:null,getAll:key=>values[key]||[]}}
 function setup(){
  const store=new Map(),storage={getItem:key=>store.get(key)||null,setItem:(key,value)=>store.set(key,value)};
- const context=vm.createContext({...planning,currentWeek,plannerMonday:planning.dateKey(currentWeek()[0]),plans:[{id:123,recipe:recipe.id,day:'Monday',slot:'Dinner',servings:2}],shopping:[{name:'Rice',qty:50,unit:'g',sources:['Manual'],checked:false}],recipes:[recipe],crypto:{randomUUID:()=> 'new-id'},checks:(r,s)=>[{name:'Rice',missing:100*s/r.servings,unit:'g'}],saveState:()=>{writeAccountState(storage,'a',{plans:context.plans,shopping:context.shopping});return true}});
+ const context=vm.createContext({...planning,currentWeek,plannedSubstitutions:()=>({}),plannerMonday:planning.dateKey(currentWeek()[0]),plans:[{id:123,recipe:recipe.id,day:'Monday',slot:'Dinner',servings:2}],shopping:[{name:'Rice',qty:50,unit:'g',sources:['Manual'],checked:false}],recipes:[recipe],crypto:{randomUUID:()=> 'new-id'},checks:(r,s)=>[{name:'Rice',missing:100*s/r.servings,unit:'g'}],saveState:()=>{writeAccountState(storage,'a',{plans:context.plans,shopping:context.shopping});return true}});
  vm.runInContext(source.slice(source.indexOf('function savePlannedMeal('),source.indexOf('const recipeUnits')),context);
  // addShop lives after these planner helpers.
  const start=source.indexOf('function addShop(');vm.runInContext(source.slice(start,source.indexOf('\n',start)),context);
@@ -50,4 +50,10 @@ test('saving and editing a dated meal stores the correct date and weekday',()=>{
  c.savePlannedMeal(form({'plan-id':'123',recipe:recipe.id,date:'2027-01-03',slot:'Lunch',servings:'2'}));
  assert.equal(c.plans[0].date,'2027-01-03');assert.equal(c.plans[0].day,'Sunday');
  assert.throws(()=>c.savePlannedMeal(form({'plan-id':'123',recipe:recipe.id,date:'2027-02-30',slot:'Lunch',servings:'2'})),/valid date/);
+});
+test('meal substitutions persist with the meal and pass through to shopping calculations',()=>{
+ const {context:c,storage}=setup();c.plannedSubstitutions=()=>({'tomato':'cherry'});
+ let chosen;c.checks=(recipe,servings,choices)=>{chosen=choices;return []};
+ c.savePlannedMeal(form({recipe:recipe.id,day:'Monday',slot:'Dinner',servings:'2'}));
+ assert.equal(chosen.tomato,'cherry');assert.equal(readAccountState(storage,'a').plans.at(-1).substitutions.tomato,'cherry');
 });
