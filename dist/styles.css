@@ -24,3 +24,7 @@
 .ingredient-results button:hover,.ingredient-results button[aria-selected="true"]{background:#e2eee6}
 .recipe-ingredient-input .ingredient-picker{align-self:start}
 @media(max-width:650px){.recipe-ingredient-input{grid-template-columns:minmax(0,1fr) 92px 32px}.recipe-ingredient-input .ingredient-picker{grid-column:1/-1}.recipe-ingredient-input [name="ingredient-note"]{grid-column:1/3}.recipe-ingredient-input .row-remove{grid-column:3;grid-row:3}}
+
+.planned-card .plan-edit{display:block;margin-top:10px;padding:6px 0;cursor:pointer;text-decoration:underline}
+
+.inline-ingredient-editor{padding:14px;margin-top:8px;background:var(--sage-pale);border-radius:12px}.inline-ingredient-editor[hidden]{display:none}.inline-ingredient-editor label{display:block}.catalogue-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}.catalogue-row small{display:block;color:var(--muted)}.catalogue-form{max-width:600px}.catalogue-form label{display:block;margin:14px 0}.catalogue-form input,.catalogue-form select{display:block;width:100%;padding:12px;border:1px solid var(--line);border-radius:9px}.ingredient-picker>.add-row-btn{font-size:12px}.catalogue-row button{flex-shrink:0}

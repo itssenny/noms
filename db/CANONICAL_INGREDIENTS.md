@@ -1,5 +1,8 @@
 # Canonical ingredient rollout
 
+Current catalogue management: apply migration 007 before using inline creation or Inventory → Manage ingredients. It includes the 004 foundation if missing; do not run 004 after 007. For an empty catalogue, run 005 immediately after 007, before adding custom ingredients. Shared starter entries are read-only; users can create/edit their own entries. Earlier descriptions of a fully read-only catalogue below describe the pre-007 release.
+
+
 Apply migrations in order in the development Supabase project, before deploying this frontend:
 
 1. Existing `001_core_recipe_inventory.sql`, `002_profiles.sql`, `003_recipe_manual_entry.sql` (do not reapply if already installed).
@@ -44,3 +47,11 @@ Live acceptance (requires applied migrations and authenticated development sessi
 Verified locally: all three picker tests and both isolated PostgreSQL integration tests pass, as do the production build, JavaScript syntax checks and diff whitespace checks. The SQL harness supplies mock Auth roles/users and omits only the pgcrypto extension declaration (the test runtime already provides UUID generation); it runs the actual core and new migration SQL. This does not inspect the deployed database.
 
 Live checks and publication remain pending until database access/migration application and a browser session are available. Do not interpret mocked client tests as proof of live authentication, persistence or RLS.
+
+## Editable catalogue acceptance
+
+- With 007 applied, open Inventory → Manage ingredients. Shared starter records and your custom records appear; only your custom records have Edit.
+- Add a unique ingredient with category/default unit; edit its name and default unit, reload, and verify persistence and stable ID. Existing saved recipe/inventory units must remain unchanged.
+- While adding a recipe, type an unknown name, choose Add ingredient to catalogue, fill the inline fields, then Add and select. The recipe form stays open and receives a valid ingredient ID.
+- Searching an existing name and adding the same spelling/case must reuse the visible record. A different account cannot see/edit private entries or reference their IDs in recipe/inventory writes.
+- If default_unit or created_by is missing, show a migration error rather than a no-results message. Live database and browser checks remain required.

@@ -47,9 +47,9 @@
       <section class="view active" id="home-view">
         <div class="hero">
           <div>
-            <p class="eyebrow">SATURDAY, AUGUST 22</p>
+            <p class="eyebrow" id="today-label"></p>
             <h1>Good afternoon,<br><em>what's cooking?</em></h1>
-            <p class="hero-copy">Your kitchen is in good shape. You can make <strong>4 recipes</strong> with what you have.</p>
+            <p class="hero-copy" id="kitchen-summary"></p>
             <button class="primary-btn" data-action="cook-now">See what I can cook <span>→</span></button>
           </div>
           <div class="hero-art" aria-hidden="true">
@@ -63,20 +63,21 @@
             <div class="meal-strip" id="home-meals"></div>
           </section>
           <section class="panel low-panel">
-            <div class="section-heading"><div><p class="eyebrow coral">MISE & MEAL CHECK</p><h2>Running low</h2></div><span class="count-pill" id="low-count">3</span></div>
+            <div class="section-heading"><div><p class="eyebrow coral">MISE & MEAL CHECK</p><h2>Running low</h2></div><span class="count-pill" id="low-count">0</span></div>
             <div id="low-stock-list"></div>
             <button class="full-soft-btn" data-action="add-low">Add all to shopping list</button>
           </section>
         </div>
 
         <section class="recipe-section">
-          <div class="section-heading"><div><p class="eyebrow">READY WHEN YOU ARE</p><h2>Cook with what you have</h2></div><button class="text-btn" data-view="recipes">Browse all recipes →</button></div>
+          <div class="section-heading"><div><p class="eyebrow">READY WHEN YOU ARE</p><h2 id="home-recipes-title">Your recipes</h2></div><button class="text-btn" data-view="recipes">Browse all recipes →</button></div>
           <div class="recipe-grid" id="home-recipes"></div>
         </section>
       </section>
       <section class="view" id="recipes-view"></section>
       <section class="view" id="planner-view"></section>
       <section class="view" id="inventory-view"></section>
+      <section class="view" id="catalogue-view"></section>
       <section class="view" id="shopping-view"></section>
       <section class="view" id="profile-view"></section>
       <section class="view" id="detail-view"></section>

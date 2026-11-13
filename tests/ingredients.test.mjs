@@ -45,3 +45,8 @@ test('unselected text cannot be saved',()=>{
   const {context}=setup();const fixture=pickerFixture();fixture.input.value='Cucumber';
   assert.throws(()=>context.selectedIngredient(fixture.picker),/Choose an ingredient/);
 });
+test('recipe editor presets a catalogue selection and its saved unit',()=>{
+ const {context}=setup(),fixture=pickerFixture();
+ context.presetIngredient(fixture.picker,{id:'rice-id',canonical_name:'Rice',default_unit:'kg'});
+ assert.equal(context.selectedIngredient(fixture.picker).id,'rice-id');assert.equal(fixture.input.value,'Rice');assert.equal(fixture.unit.value,'kg');
+});

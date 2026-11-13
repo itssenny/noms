@@ -1,11 +1,42 @@
 import { supabase } from './supabase-client.js';
 
 export const units = ['piece','g','kg','ml','l','clove','tsp','tbsp','cup','pinch','can','package','bunch','pcs','pack','loaf','other'];
+export const ingredientCategories=['Vegetables','Fruits','Meat','Fish & Seafood','Dairy','Eggs','Carbohydrates','Canned Goods','Sauces & Condiments','Other'];
+export const escapeIngredientHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function catalogueError(error){
+ if(['42703','PGRST204'].includes(error?.code)||/default_unit|created_by|normalized_name/.test(error?.message||''))return 'The ingredient catalogue needs database update 007_editable_ingredient_catalogue.sql. Apply it in Supabase, then retry.';
+ if(error?.code==='42501')return 'Could not access the catalogue. Sign in and check that database update 007 is installed.';
+ return error?.message||'Could not load ingredients. Check your connection and retry.';
+}
+function normalizedName(value){return value.trim().replace(/\s+/g,' ')}
+export async function saveCatalogueIngredient({id=null,name,category,unit}){
+ name=normalizedName(name);
+ if(!name||name.length>100)throw new Error('Enter an ingredient name between 1 and 100 characters.');
+ if(!units.includes(unit)||!ingredientCategories.includes(category))throw new Error('Choose a category and unit.');
+ const {data:auth,error:authError}=await supabase.auth.getUser();
+ if(authError||!auth.user)throw new Error('Please sign in again.');
+ const userId=auth.user.id;
+ // Reuse an exact visible match instead of creating duplicate capitalizations.
+ {
+  const found=await supabase.from('ingredients').select('id,canonical_name,category,default_unit,created_by').eq('normalized_name',name.toLowerCase()).limit(2);
+  if(found.error)throw new Error(catalogueError(found.error));
+  const match=found.data?.find(row=>row.id!==id);
+  if(match){if(id)throw new Error('An ingredient with that name already exists. Choose a different name.');return found.data.find(row=>row.created_by===null)||match;}
+ }
+ const values={canonical_name:name,category,default_unit:unit};
+ const query=id?supabase.from('ingredients').update(values).eq('id',id).eq('created_by',userId):supabase.from('ingredients').insert({...values,created_by:userId});
+ const {data,error}=await query.select('id,canonical_name,category,default_unit,created_by').single();
+ if(error){
+  if(error.code==='23505')throw new Error('An ingredient with that name already exists. Search for it or choose a different name.');
+  throw new Error(catalogueError(error));
+ }
+ return data;
+}
 const states = new WeakMap();
 let pickerId = 0;
 export function ingredientPicker(name) {
   const id = `ingredient-picker-${++pickerId}`;
-  return `<div class="ingredient-picker"><label for="${id}">Ingredient</label><input id="${id}" name="${name}" required autocomplete="off" placeholder="Search ingredients…" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-results" aria-describedby="${id}-status"><div class="ingredient-results" id="${id}-results" role="listbox" hidden></div><small id="${id}-status" class="ingredient-selection" role="status">Choose from the catalogue</small></div>`;
+  return `<div class="ingredient-picker"><label for="${id}">Ingredient</label><input id="${id}" name="${name}" required autocomplete="off" placeholder="Search ingredients…" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-results" aria-describedby="${id}-status"><div class="ingredient-results" id="${id}-results" role="listbox" hidden></div><small id="${id}-status" class="ingredient-selection" role="status">Choose from the catalogue</small><button type="button" class="add-row-btn" data-new-ingredient>Add ingredient to catalogue</button><div class="inline-ingredient-editor" hidden></div></div>`;
 }
 export async function searchIngredients(query) {
   // Escape LIKE wildcards so typed punctuation never broadens a search.
@@ -34,6 +65,11 @@ function close(picker) {
   const input = picker.querySelector('input');
   input.setAttribute('aria-expanded', 'false');
   input.removeAttribute('aria-activedescendant');
+}
+export function presetIngredient(picker, ingredient) {
+  const state=stateFor(picker);
+  state.results=[ingredient];
+  choose(picker,0);
 }
 function choose(picker, index) {
   const state = stateFor(picker), ingredient = state.results[index];
@@ -79,18 +115,24 @@ async function update(picker) {
       }));
       list.hidden = !results.length;
       input.setAttribute('aria-expanded', String(!!results.length));
-      status.textContent = results.length ? 'Choose an ingredient below' : 'No ingredients found. Try a shorter search; new ingredients must be added to the catalogue.';
+      status.textContent = results.length ? 'Choose an ingredient below' : 'No ingredients found. Use Add ingredient below, or try a shorter search.';
     } catch (error) {
       if (version !== state.version || !picker.isConnected) return;
-      status.textContent = 'Could not search ingredients. Try typing again.';
+      status.textContent = catalogueError(error);
     }
   }, 150);
 }
 document.addEventListener('input', event => {
   const picker = event.target.closest('.ingredient-picker');
-  if (picker) update(picker);
+  if (picker && event.target===picker.querySelector('input')) update(picker);
 });
-document.addEventListener('click', event => {
+document.addEventListener('click', async event => {
+  const add=event.target.closest('[data-new-ingredient]');
+  if(add){openIngredientEditor(add.closest('.ingredient-picker'));return}
+  const cancel=event.target.closest('[data-cancel-ingredient]');
+  if(cancel){cancel.closest('.inline-ingredient-editor').hidden=true;return}
+  const save=event.target.closest('[data-save-ingredient]');
+  if(save){await saveInlineIngredient(save.closest('.ingredient-picker'),save);return}
   const option = event.target.closest('[data-ingredient-index]');
   if (option) choose(option.closest('.ingredient-picker'), Number(option.dataset.ingredientIndex));
   else document.querySelectorAll('.ingredient-picker').forEach(picker => {
@@ -99,7 +141,7 @@ document.addEventListener('click', event => {
 });
 document.addEventListener('keydown', event => {
   const picker = event.target.closest('.ingredient-picker');
-  if (!picker) return;
+  if (!picker || event.target!==picker.querySelector('input')) return;
   const state = stateFor(picker), list = picker.querySelector('[role="listbox"]');
   if (event.key === 'Escape' || event.key === 'Tab') { state.version++; close(picker); return; }
   if (list.hidden) return;
@@ -114,3 +156,25 @@ document.addEventListener('keydown', event => {
     list.children[state.active].scrollIntoView({ block: 'nearest' });
   }
 });
+
+function openIngredientEditor(picker){
+ const editor=picker.querySelector('.inline-ingredient-editor');
+ const name=picker.querySelector('input').value;
+ editor.hidden=false;
+ editor.innerHTML=`<p>Add a reusable ingredient to your catalogue.</p><label>Name<input data-catalogue-name maxlength="100" value="${escapeIngredientHtml(name)}"></label><label>Category<select data-catalogue-category>${ingredientCategories.map(x=>`<option>${x}</option>`).join('')}</select></label><label>Default unit<select data-catalogue-unit>${units.map(x=>`<option>${x}</option>`).join('')}</select></label><p data-catalogue-status role="status"></p><button type="button" class="secondary-btn" data-save-ingredient>Add and select</button><button type="button" class="text-btn" data-cancel-ingredient>Cancel</button>`;
+ editor.querySelector('[data-catalogue-category]').value='Other';
+ editor.querySelector('[data-catalogue-name]').focus();
+}
+async function saveInlineIngredient(picker,button){
+ if(button.disabled)return;
+ const editor=picker.querySelector('.inline-ingredient-editor'),status=editor.querySelector('[data-catalogue-status]');
+ button.disabled=true;status.textContent='Saving…';
+ try{
+  const {data:before}=await supabase.auth.getUser();
+  if(!picker.isConnected)return;
+  const ingredient=await saveCatalogueIngredient({name:editor.querySelector('[data-catalogue-name]').value,category:editor.querySelector('[data-catalogue-category]').value,unit:editor.querySelector('[data-catalogue-unit]').value});
+  const {data:after}=await supabase.auth.getUser();
+  if(!picker.isConnected||before.user?.id!==after.user?.id)return;
+  presetIngredient(picker,ingredient);editor.hidden=true;
+ }catch(error){if(picker.isConnected)status.textContent=error.message}finally{button.disabled=false}
+}
