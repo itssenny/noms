@@ -1,3 +1,5 @@
+import {dateKey,cleanRecipeSources} from '../planning.mjs';
+import {currentWeek} from '../calendar.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -19,7 +21,7 @@ test('unowned legacy state is preserved without being exposed to a new account',
 const source=await readFile(new URL('../app.js',import.meta.url),'utf8');
 function harness(){
  const pending=[],nodes=new Map(),store=storage();
- const context=vm.createContext({readAccountState,writeAccountState,localStorage:store,console,clearCatalogue(){},recipes:[],inventory:{},plans:[],shopping:[],currentRecipe:null,cookStep:0,window:{},home(){},show(){},toast(){},$:id=>{if(!nodes.has(id))nodes.set(id,{innerHTML:'old account'});return nodes.get(id)},document:{querySelector(){return null}},mapRecipe:row=>row,supabase:{from(){return {select(){return this},order(){return new Promise(resolve=>pending.push(resolve))}}}}});
+ const context=vm.createContext({dateKey,cleanRecipeSources,currentWeek,readAccountState,writeAccountState,localStorage:store,console,clearCatalogue(){},recipes:[],inventory:{},plans:[],shopping:[],currentRecipe:null,cookStep:0,window:{},home(){},show(){},toast(){},$:id=>{if(id==='#recipe-peek')return null;if(!nodes.has(id))nodes.set(id,{innerHTML:'old account'});return nodes.get(id)},document:{querySelector(){return null}},mapRecipe:row=>row,supabase:{from(){return {select(){return this},order(){return new Promise(resolve=>pending.push(resolve))}}}}});
  const state=source.slice(source.indexOf('let activeUserId='),source.indexOf('async function currentUser'));
  const loader=source.slice(source.indexOf('async function loadDatabase('),source.indexOf('async function uploadRecipeCover'));
  vm.runInContext(state+loader,context);return {context,pending,nodes,store};

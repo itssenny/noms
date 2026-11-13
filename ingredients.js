@@ -34,9 +34,9 @@ export async function saveCatalogueIngredient({id=null,name,category,unit}){
 }
 const states = new WeakMap();
 let pickerId = 0;
-export function ingredientPicker(name) {
+export function ingredientPicker(name,required=true) {
   const id = `ingredient-picker-${++pickerId}`;
-  return `<div class="ingredient-picker"><label for="${id}">Ingredient</label><input id="${id}" name="${name}" required autocomplete="off" placeholder="Search ingredients…" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-results" aria-describedby="${id}-status"><div class="ingredient-results" id="${id}-results" role="listbox" hidden></div><small id="${id}-status" class="ingredient-selection" role="status">Choose from the catalogue</small><button type="button" class="add-row-btn" data-new-ingredient>Add ingredient to catalogue</button><div class="inline-ingredient-editor" hidden></div></div>`;
+  return `<div class="ingredient-picker"><label for="${id}">Ingredient</label><input id="${id}" name="${name}" ${required?'required':''} autocomplete="off" placeholder="Search ingredients…" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-results" aria-describedby="${id}-status"><div class="ingredient-results" id="${id}-results" role="listbox" hidden></div><small id="${id}-status" class="ingredient-selection" role="status"></small><div class="inline-ingredient-editor" hidden></div></div>`;
 }
 export async function searchIngredients(query) {
   // Escape LIKE wildcards so typed punctuation never broadens a search.
@@ -72,7 +72,9 @@ export function presetIngredient(picker, ingredient) {
   choose(picker,0);
 }
 function choose(picker, index) {
-  const state = stateFor(picker), ingredient = state.results[index];
+  const state = stateFor(picker);
+  if(state.canCreate&&index===state.results.length){openIngredientEditor(picker);return}
+  const ingredient=state.results[index];
   if (!ingredient) return;
   state.selected = ingredient;
   state.version++;
@@ -84,6 +86,7 @@ function choose(picker, index) {
   const suggested = ingredient.default_unit || 'piece';
   if (![...unit.options].some(option => option.value === suggested)) unit.add(new Option(suggested, suggested));
   unit.value = suggested;
+  const quantity=scope.querySelector('[name="ingredient-quantity"]');if(quantity)quantity.disabled=['as needed','to taste'].includes(suggested);
   close(picker);
   picker.querySelector('input').focus();
 }
@@ -96,7 +99,7 @@ async function update(picker) {
   state.active = -1;
   close(picker);
   clearTimeout(state.timer);
-  status.textContent = input.value.trim() ? 'Searching…' : 'Choose from the catalogue';
+  status.textContent = input.value.trim() ? 'Searching…' : '';
   if (!input.value.trim()) return;
   state.timer = setTimeout(async () => {
     try {
@@ -113,9 +116,10 @@ async function update(picker) {
         option.textContent = `${ingredient.canonical_name} · ${ingredient.category}`;
         return option;
       }));
-      list.hidden = !results.length;
-      input.setAttribute('aria-expanded', String(!!results.length));
-      status.textContent = results.length ? 'Choose an ingredient below' : 'No ingredients found. Use Add ingredient below, or try a shorter search.';
+      state.canCreate=!results.some(ingredient=>normalizedName(ingredient.canonical_name).toLowerCase()===normalizedName(input.value).toLowerCase());
+      if(state.canCreate){const add=document.createElement('button');add.type='button';add.role='option';add.id=`${input.id}-option-${results.length}`;add.dataset.newIngredient='true';add.setAttribute('aria-selected','false');add.textContent=`Add “${input.value.trim()}” to catalogue`;list.append(add)}
+      list.hidden=false;input.setAttribute('aria-expanded','true');
+      status.textContent='';
     } catch (error) {
       if (version !== state.version || !picker.isConnected) return;
       status.textContent = catalogueError(error);
@@ -150,7 +154,8 @@ document.addEventListener('keydown', event => {
     if (state.active >= 0) choose(picker, state.active);
   } else if (['ArrowDown', 'ArrowUp'].includes(event.key)) {
     event.preventDefault();
-    state.active = (state.active + (event.key === 'ArrowDown' ? 1 : -1) + state.results.length) % state.results.length;
+    const count=state.results.length+(state.canCreate?1:0);if(!count)return;
+    state.active = (state.active + (event.key === 'ArrowDown' ? 1 : -1) + count) % count;
     [...list.children].forEach((option, index) => option.setAttribute('aria-selected', String(index === state.active)));
     picker.querySelector('input').setAttribute('aria-activedescendant', list.children[state.active].id);
     list.children[state.active].scrollIntoView({ block: 'nearest' });
@@ -158,6 +163,7 @@ document.addEventListener('keydown', event => {
 });
 
 function openIngredientEditor(picker){
+ const state=stateFor(picker);state.version++;clearTimeout(state.timer);close(picker);
  const editor=picker.querySelector('.inline-ingredient-editor');
  const name=picker.querySelector('input').value;
  editor.hidden=false;
@@ -178,3 +184,5 @@ async function saveInlineIngredient(picker,button){
   presetIngredient(picker,ingredient);editor.hidden=true;
  }catch(error){if(picker.isConnected)status.textContent=error.message}finally{button.disabled=false}
 }
+
+document.addEventListener('focusin',event=>{const picker=event.target.closest('.ingredient-picker');if(picker&&event.target===picker.querySelector('input')&&!stateFor(picker).selected&&event.target.value.trim())update(picker)});

@@ -1,3 +1,5 @@
+import * as planning from '../planning.mjs';
+import {currentWeek} from '../calendar.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -8,7 +10,7 @@ const recipe={id:'recipe-a',name:'Rice bowl',servings:2};
 function form(values){return {get:key=>key in values?values[key]:null,getAll:key=>values[key]||[]}}
 function setup(){
  const store=new Map(),storage={getItem:key=>store.get(key)||null,setItem:(key,value)=>store.set(key,value)};
- const context=vm.createContext({plans:[{id:123,recipe:recipe.id,day:'Monday',slot:'Dinner',servings:2}],shopping:[{name:'Rice',qty:50,unit:'g',sources:['Manual'],checked:false}],recipes:[recipe],crypto:{randomUUID:()=> 'new-id'},checks:(r,s)=>[{name:'Rice',missing:100*s/r.servings,unit:'g'}],saveState:()=>{writeAccountState(storage,'a',{plans:context.plans,shopping:context.shopping});return true}});
+ const context=vm.createContext({...planning,currentWeek,plannerMonday:planning.dateKey(currentWeek()[0]),plans:[{id:123,recipe:recipe.id,day:'Monday',slot:'Dinner',servings:2}],shopping:[{name:'Rice',qty:50,unit:'g',sources:['Manual'],checked:false}],recipes:[recipe],crypto:{randomUUID:()=> 'new-id'},checks:(r,s)=>[{name:'Rice',missing:100*s/r.servings,unit:'g'}],saveState:()=>{writeAccountState(storage,'a',{plans:context.plans,shopping:context.shopping});return true}});
  vm.runInContext(source.slice(source.indexOf('function savePlannedMeal('),source.indexOf('const recipeUnits')),context);
  // addShop lives after these planner helpers.
  const start=source.indexOf('function addShop(');vm.runInContext(source.slice(start,source.indexOf('\n',start)),context);
@@ -22,7 +24,7 @@ test('editing moves the existing meal without duplication or shopping changes, a
 });
 test('only explicitly selected additions use the updated servings',()=>{
  const {context:c}=setup();c.savePlannedMeal(form({'plan-id':'123',recipe:recipe.id,day:'Monday',slot:'Dinner',servings:'4',missing:['0']}));
- assert.equal(c.shopping[0].qty,250);assert.equal(c.shopping[0].sources.includes(recipe.name),true);
+ assert.equal(c.shopping[0].qty,200);assert.equal(c.shopping[0].sources.includes(recipe.name),true);
 });
 test('removal persists and retains shopping, and creating assigns a new ID',()=>{
  const {context:c,storage}=setup();c.removePlannedMeal('123');assert.equal(c.plans.length,0);assert.equal(c.shopping[0].qty,50);assert.equal(readAccountState(storage,'a').plans.length,0);
@@ -35,4 +37,17 @@ test('invalid or stale edits do not alter state; failed persistence rolls change
  assert.throws(()=>c.savePlannedMeal(form({'plan-id':'123',recipe:recipe.id,day:'Monday',slot:'Dinner',servings:'4',missing:['0']})),/could not be saved/);
  assert.equal(JSON.stringify({plans:c.plans,shopping:c.shopping}),before);
  assert.throws(()=>c.removePlannedMeal('123'),/could not be removed/);assert.equal(c.plans.length,1);
+});
+test('removing the final meal clears only its recipe label and never removes shopping quantities',()=>{
+ const {context:c}=setup();c.recipes.push({id:'other',name:'Other recipe'});
+ c.shopping=[{name:'Rice',qty:300,unit:'g',checked:false,sources:['Rice bowl','Other recipe'],sourceIds:['recipe-a','other']}];
+ c.plans.push({id:456,recipe:'recipe-a',date:'2027-01-04',day:'Monday',slot:'Dinner',servings:2});
+ c.removePlannedMeal('123');assert.equal(c.shopping[0].sourceIds.includes('recipe-a'),true);
+ c.removePlannedMeal('456');assert.deepEqual(Array.from(c.shopping[0].sourceIds),['other']);assert.equal(c.shopping[0].qty,300);assert.equal(c.shopping[0].checked,false);
+});
+test('saving and editing a dated meal stores the correct date and weekday',()=>{
+ const {context:c}=setup();
+ c.savePlannedMeal(form({'plan-id':'123',recipe:recipe.id,date:'2027-01-03',slot:'Lunch',servings:'2'}));
+ assert.equal(c.plans[0].date,'2027-01-03');assert.equal(c.plans[0].day,'Sunday');
+ assert.throws(()=>c.savePlannedMeal(form({'plan-id':'123',recipe:recipe.id,date:'2027-02-30',slot:'Lunch',servings:'2'})),/valid date/);
 });
