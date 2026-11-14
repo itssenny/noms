@@ -310,3 +310,9 @@ body{background:var(--noms-white);color:var(--noms-ink)}
   #detail-view .recipe-feedback-grid>.personal-feedback,#detail-view .recipe-feedback-grid>.public-comments{padding:var(--noms-space-20) var(--noms-space-16)}
   .cookbook-heading{padding:var(--noms-space-20)}
 }
+
+/* Keep ingredient shopping beside the serving and measurement controls. */
+#detail-view .ingredient-controls [data-recipe-shopping]{flex:0 1 100%;min-width:0;max-width:100%;box-sizing:border-box;min-height:44px;white-space:normal;text-align:left}
+
+#detail-view .ingredient-controls{max-width:100%}
+@media(max-width:540px){#detail-view .detail-actions>.recipe-options>div{left:auto;right:0}}
