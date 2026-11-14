@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 const source=await readFile(new URL('../app.js',import.meta.url),'utf8');
 test('new recipes save the cropped upload using existing photo columns, without a framing migration',async()=>{
  const writes=[],croppedFile={name:'recipe-cover.webp',size:200,type:'image/webp'};
- const context=vm.createContext({activeProfileId:'owner',sessionVersion:1,currentUser:async()=>({id:'owner'}),
+ const context=vm.createContext({activeProfileId:'owner',activeProfile:{id:'owner',username:'owner'},sessionVersion:1,currentUser:async()=>({id:'owner'}),
  uploadRecipeCover:async file=>{assert.equal(file,croppedFile);return 'owner/cropped.webp'},hydrateCovers:async rows=>rows.map(row=>({...row,image_url:'blob:cropped'})),
  supabase:{from(table){return {insert(value){writes.push({table,value});return this},select(){return this},single:async()=>({data:{id:'recipe',share_code:'ABC234'}}),then(resolve){return Promise.resolve({data:[]}).then(resolve)}}}}});
  vm.runInContext(source.slice(source.indexOf('async function createRecipe('),source.indexOf('function recipePayload(')),context);
