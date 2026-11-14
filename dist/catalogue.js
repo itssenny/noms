@@ -1,9 +1,9 @@
-import {ingredientDefaults,saveIngredientDefaults} from './ingredient-defaults.js';
+import {ingredientDefaults,saveIngredientDefaults,ingredientCategoryPreferences} from './ingredient-defaults.js?v=20261114-personal-categories';
 import {categoryColour,defaultCategoryColour} from './list-models.mjs?v=20261114-tracking';
 import {categoryColourIssue,saveCategoryColours} from './category-colours.js?v=20261114-tracking';
 import {substitutionRules,substitutionIssue,loadSubstitutions,addSubstitution,removeSubstitution} from './substitutions.js';
 import {supabase} from './supabase-client.js';
-import {units,ingredientCategories,ingredientPicker,selectedIngredient,escapeIngredientHtml as html,catalogueError,saveCatalogueIngredient} from './ingredients.js?v=20261114-tracking';
+import {units,ingredientCategories,ingredientPicker,selectedIngredient,escapeIngredientHtml as html,catalogueError,saveCatalogueIngredient} from './ingredients.js?v=20261114-measurements';
 let version=0,rows=[],owner=null;
 export function clearCatalogue(){version++;rows=[];owner=null;document.querySelector('#catalogue-editor')?.remove()}
 export async function catalogueView(){
@@ -17,7 +17,7 @@ export async function catalogueView(){
   const result=await supabase.from('ingredients').select('id,canonical_name,category,default_unit,created_by').order('canonical_name').limit(1000);
   if(current!==version)return;
   if(result.error)throw new Error(catalogueError(result.error));
-  owner=auth.user.id;rows=result.data||[];await loadSubstitutions(owner);if(current!==version)return;
+  owner=auth.user.id;const categoryPreferences=await ingredientCategoryPreferences(owner);if(current!==version)return;rows=(result.data||[]).map(row=>({...row,category:categoryPreferences.get(row.id)||row.category}));await loadSubstitutions(owner);if(current!==version)return;
   view.innerHTML=`<button class="back-btn" data-view="inventory">← Back to inventory</button><div class="page-head"><div><p class="eyebrow">YOUR INGREDIENTS</p><h1>Ingredient catalogue</h1><p>Browse shared ingredients and add or edit your own. Default units are suggestions; saved recipe and stock quantities stay as entered.</p></div><button class="primary-btn" data-catalogue-new>Add ingredient</button></div><section id="category-colour-settings" class="panel category-colour-settings"></section><section id="substitution-settings" class="panel substitution-settings"></section><section class="catalogue-browse"><h2>Find an ingredient</h2><label class="search"><span class="sr-only">Search ingredients</span><input id="catalogue-search" placeholder="Search ingredients"></label><p id="catalogue-count"></p><div id="catalogue-list" class="panel"></div></section>`;
   renderRows('');renderCategoryColours();renderSubstitutions();
  }catch(error){if(current===version)view.innerHTML=`<button class="back-btn" data-view="inventory">← Back to inventory</button><h1>Ingredient catalogue</h1><p role="alert">${html(error.message)}</p><button class="secondary-btn" data-catalogue-retry>Retry</button>`}
@@ -32,7 +32,7 @@ async function editIngredient(id=null){
  if(id&&!row)return;
  const current=version;let defaults=null;try{if(row)defaults=await ingredientDefaults(row.id)}catch(error){alert(error.message);return}if(current!==version)return;
  let editor=document.querySelector('#catalogue-editor');if(!editor){editor=document.createElement('dialog');editor.id='catalogue-editor';editor.className='catalogue-editor-dialog';editor.setAttribute('aria-labelledby','catalogue-editor-title');document.body.append(editor)}
- editor.innerHTML=`<form id="catalogue-form" class="panel catalogue-form"><h2 id="catalogue-editor-title">${row?'Edit ingredient':'Add ingredient'}</h2>${row?`<input type="hidden" name="id" value="${html(row.id)}">`:''}<label>Name<input name="name" ${row&&row.created_by!==owner?'readonly':''} required maxlength="100" value="${html(row?.canonical_name||'')}"></label><label>Category<select name="category" ${row&&row.created_by!==owner?'disabled':''}>${ingredientCategories.map(x=>`<option ${x===(row?.category||'Other')?'selected':''}>${html(x)}</option>`).join('')}</select></label><label>Default unit<select name="unit">${units.map(x=>`<option ${x===(defaults?.default_unit||row?.default_unit||'piece')?'selected':''}>${html(x)}</option>`).join('')}</select></label><label>Default location<select name="location">${['Fridge','Freezer','Pantry'].map(x=>`<option ${x===(defaults?.storage_location||'Pantry')?'selected':''}>${x}</option>`).join('')}</select></label><label>Low stock at or below<input name="threshold" type="number" min="0" step="any" required value="${defaults?.low_stock_threshold??0}"></label><p>These defaults apply when adding inventory. Saving here does not add or change stock.</p><p role="status" id="catalogue-save-status"></p><button class="primary-btn">${row?'Save changes':'Add ingredient'}</button><button type="button" class="secondary-btn" data-catalogue-cancel>Cancel</button></form>`;
+ editor.innerHTML=`<form id="catalogue-form" class="panel catalogue-form"><h2 id="catalogue-editor-title">${row?'Edit ingredient':'Add ingredient'}</h2>${row?`<input type="hidden" name="id" value="${html(row.id)}">`:''}<label>Name<input name="name" ${row&&row.created_by!==owner?'readonly':''} required maxlength="100" value="${html(row?.canonical_name||'')}"></label><label>Category<select name="category">${ingredientCategories.map(x=>`<option ${x===(defaults?.category_override||row?.category||'Other')?'selected':''}>${html(x)}</option>`).join('')}</select></label>${row&&row.created_by!==owner?'<small>Your category choice applies to your own ingredient catalogue and inventory.</small>':''}<label>Default unit<select name="unit">${units.map(x=>`<option ${x===(defaults?.default_unit||row?.default_unit||'piece')?'selected':''}>${html(x)}</option>`).join('')}</select></label><label>Default location<select name="location">${['Fridge','Freezer','Pantry'].map(x=>`<option ${x===(defaults?.storage_location||'Pantry')?'selected':''}>${x}</option>`).join('')}</select></label><label>Low stock at or below<input name="threshold" type="number" min="0" step="any" required value="${defaults?.low_stock_threshold??0}"></label><p>These defaults apply when adding inventory. Saving here does not change stock quantities. Your category also applies to existing inventory.</p><p role="status" id="catalogue-save-status"></p><button class="primary-btn">${row?'Save changes':'Add ingredient'}</button><button type="button" class="secondary-btn" data-catalogue-cancel>Cancel</button></form>`;
  editor.onclick=event=>{if(event.target===editor){const box=editor.getBoundingClientRect();if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)editor.close()}};if(!editor.open)editor.showModal();
  editor.querySelector('[name="name"]').focus();
 }
@@ -53,7 +53,7 @@ document.addEventListener('submit',async event=>{
   const existing=rows.find(row=>row.id===data.get('id'));
   const ingredient=existing&&existing.created_by!==owner?existing:await saveCatalogueIngredient({id:data.get('id'),name:data.get('name'),category:data.get('category'),unit:data.get('unit')});
   if(current!==version)return;
-  await saveIngredientDefaults(ingredient.id,{unit:data.get('unit'),location:data.get('location'),threshold:Number(data.get('threshold'))},owner);
+  await saveIngredientDefaults(ingredient.id,{unit:data.get('unit'),location:data.get('location'),threshold:Number(data.get('threshold')),category:data.get('category')},owner);
   if(current!==version)return;
   window.dispatchEvent(new CustomEvent('mise-catalogue-updated'));
   await catalogueView();

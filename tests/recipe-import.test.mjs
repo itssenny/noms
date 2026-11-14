@@ -47,12 +47,12 @@ test('bounded HTTP/1.1 decoder accepts content length, chunked UTF-8 and early h
  assert.throws(()=>parseWebsiteResponse(bytes(header+'\r\n'+'a'.repeat(2*1024*1024+1))),/too large/);
 });
 
-test('cookie imports use stated metric equivalents and keep composite egg amounts honest',()=>{
+test('imports preserve original cups, use explicit metric totals for composites and keep eggs honest',()=>{
  assert.deepEqual(ingredientDraft('2 cups + 3 Tablespoons (265g) all-purpose flour'),{name:'all-purpose flour',quantity:265,unit:'g',raw:'2 cups + 3 Tablespoons (265g) all-purpose flour'});
  assert.equal(ingredientDraft('¾ cup (180g) unsalted butter, melted and slightly cooled').name,'unsalted butter');
- assert.equal(ingredientDraft('¾ cup (135g) light brown sugar').quantity,135);
- assert.equal(ingredientDraft('1/3 cup (70g) granulated sugar').quantity,70);
- assert.equal(ingredientDraft('1 cup (175g) white chocolate chips').quantity,175);
+ assert.equal(ingredientDraft('¾ cup (135g) light brown sugar').quantity,.75);
+ assert.equal(ingredientDraft('1/3 cup (70g) granulated sugar').quantity,1/3);
+ assert.equal(ingredientDraft('1 cup (175g) white chocolate chips').quantity,1);
  assert.deepEqual(ingredientDraft('2 eggs'),{name:'eggs',quantity:2,unit:'piece',raw:'2 eggs'});
  assert.equal(ingredientDraft('1 large egg + 1 yolk').name,'egg');
  assert.equal(ingredientDraft('1 large egg + 1 yolk').quantity,null);

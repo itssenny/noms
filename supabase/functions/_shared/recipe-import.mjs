@@ -1,3 +1,4 @@
+import { normalizeUnit, measures } from './measurements.mjs';
 // Pure extraction: never executes website scripts or invents missing amounts.
 export function plain(value, limit=10000) {
  return String(value??'').replace(/<[^>]*>/g,' ').replace(/&(?:amp|lt|gt|quot|apos|nbsp);|&#(?:x[0-9a-f]+|\d+);/gi,entity=>{
@@ -42,21 +43,22 @@ export function extractRecipes(html,sourceUrl){
 }
 const unitNames={grams:'g',gram:'g',g:'g',kilograms:'kg',kg:'kg',milliliters:'ml',millilitres:'ml',ml:'ml',l:'l',teaspoon:'tsp',teaspoons:'tsp',tsp:'tsp',tablespoon:'tbsp',tablespoons:'tbsp',tbsp:'tbsp',cups:'cup',cup:'cup',cloves:'clove',clove:'clove',pieces:'piece',piece:'piece',cans:'can',can:'can',pinch:'pinch',bunch:'bunch',package:'package'};
 export function ingredientDraft(raw){
- const fractions={'½':'1/2','¼':'1/4','¾':'3/4','⅓':'1/3','⅔':'2/3','⅛':'1/8'};
- const line=raw.replace(/(\d)([½¼¾⅓⅔⅛])/g,'$1 $2').replace(/[½¼¾⅓⅔⅛]/g,c=>fractions[c]);
- // Prefer an explicitly supplied metric equivalent; keep the complete original
+ const fractions={'½':'1/2','¼':'1/4','¾':'3/4','⅓':'1/3','⅔':'2/3','⅛':'1/8','⅜':'3/8','⅝':'5/8','⅞':'7/8'};
+ const line=raw.replace(/(\d)([½¼¾⅓⅔⅛⅜⅝⅞])/g,'$1 $2').replace(/[½¼¾⅓⅔⅛⅜⅝⅞]/g,c=>fractions[c]);
+ // Use an explicitly supplied metric equivalent only for composite expressions; keep the complete original
  // line for review. This handles "2 cups + 3 tbsp (265g) flour" without adding
  // incompatible volume measurements or discarding the extra tablespoons.
  const metric=/\(\s*(\d+(?:[.,]\d+)?)\s*(g|kg|ml|l)\s*\)\s*(.+)$/i.exec(line);
+
+ const match=/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:[.,]\d+)?)\s*((?:fl\.?\s*oz|fluid\s+ounces?)|[a-z]+)\.?\s+(?:\([^)]*\)\s*)?(.+)$/i.exec(line);
+ if(match&&!/^(?:can|cans|pack|packs|package|packages|tin|tins|bottle|bottles)\b/i.test(line.replace(/^[\d\s/.,]+/,''))&&(unitNames[match[2].toLowerCase()]||measures[normalizeUnit(match[2])])&&!/^(?:\(\s*\d|\+)/.test(match[3])){
+  const amount=match[1].split(/\s+/).reduce((n,x)=>{const [a,b]=x.split('/').map(Number);return n+(b?a/b:Number(x.replace(',','.')))},0);
+  const name=match[3].split(',')[0].trim();
+  if(amount>0&&Number.isFinite(amount))return {name,quantity:amount,unit:unitNames[match[2].toLowerCase()]||normalizeUnit(match[2]),raw};
+ }
  if(metric&&!/^(?:can|cans|pack|packs|package|packages|tin|tins|bottle|bottles)\b/i.test(line.replace(/^[\d\s/.,]+/,''))){
   const quantity=Number(metric[1].replace(',','.')),name=metric[3].split(',')[0].trim();
   if(quantity>0&&name)return {name,quantity,unit:metric[2].toLowerCase(),raw};
- }
- const match=/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:[.,]\d+)?)\s+([a-z]+)\.?\s+(.+)$/i.exec(line);
- if(match&&unitNames[match[2].toLowerCase()]&&!/^(?:\(\s*\d|\+)/.test(match[3])){
-  const amount=match[1].split(/\s+/).reduce((n,x)=>{const [a,b]=x.split('/').map(Number);return n+(b?a/b:Number(x.replace(',','.')))},0);
-  const name=match[3].split(',')[0].trim();
-  if(amount>0&&Number.isFinite(amount))return {name,quantity:amount,unit:unitNames[match[2].toLowerCase()],raw};
  }
  // Separate a search name from a count, without inventing an amount for
  // composite lines such as "1 large egg + 1 yolk".

@@ -1,7 +1,7 @@
 import { supabase } from './supabase-client.js';
 
-export const units = ['piece','g','kg','ml','l','clove','tsp','tbsp','cup','pinch','can','package','bunch','pcs','pack','loaf','other'];
-export const ingredientCategories=['Vegetables','Fruits','Meat','Fish & Seafood','Dairy','Eggs','Carbohydrates','Canned Goods','Sauces & Condiments','Spices','Herbs','Other'];
+export const units = ['piece','g','kg','ml','l','clove','tsp','tbsp','cup','oz','fl oz','lb','pinch','can','package','bunch','pcs','pack','loaf','other'];
+export const ingredientCategories=['Vegetables','Fruits','Meat','Fish & Seafood','Dairy','Eggs','Carbohydrates','Canned Goods','Sauces & Condiments','Spices','Herbs','Sweetener','Essentials','Other'];
 export const escapeIngredientHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function catalogueError(error){
  if(['42703','PGRST204'].includes(error?.code)||/default_unit|created_by|normalized_name/.test(error?.message||''))return 'The ingredient catalogue needs database update 007_editable_ingredient_catalogue.sql. Apply it in Supabase, then retry.';
@@ -37,6 +37,13 @@ let pickerId = 0;
 export function ingredientPicker(name,required=true) {
   const id = `ingredient-picker-${++pickerId}`;
   return `<div class="ingredient-picker"><label for="${id}">Ingredient</label><input id="${id}" name="${name}" ${required?'required':''} autocomplete="off" placeholder="Search ingredients…" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-results" aria-describedby="${id}-status"><div class="ingredient-results" id="${id}-results" role="listbox" hidden></div><small id="${id}-status" class="ingredient-selection" role="status"></small><div class="inline-ingredient-editor" hidden></div></div>`;
+}
+export async function exactIngredientMatches(name){
+ const {data,error}=await supabase.rpc('match_ingredient_name',{p_name:name});
+ if(!error)return data||[];
+ // Supports rollout before 026; never guess synonyms or ambiguous names.
+ const candidates=await searchIngredients(name);
+ return candidates.filter(row=>row.canonical_name.trim().toLowerCase()===name.trim().toLowerCase());
 }
 export async function searchIngredients(query) {
   // Escape LIKE wildcards so typed punctuation never broadens a search.

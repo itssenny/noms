@@ -11,7 +11,7 @@ export function filterInventory(inventory,{search='',location='all',sort='az',st
  const rank=sort==='stock'?{stock:0,low:1,out:2}:{out:0,low:1,stock:2},text=search.trim().toLowerCase();
  return Object.entries(inventory).filter(([name,item])=>name.toLowerCase().includes(text)&&(location==='all'||item.location===location)&&(status==='all'||inventoryStatus(item)===status)&&(tracking==='all'||(tracking==='inactive'?item.isActive===false:item.isActive!==false))).sort(([a,x],[b,y])=>sort==='za'?b.localeCompare(a):sort==='az'?a.localeCompare(b):(rank[inventoryStatus(x)]-rank[inventoryStatus(y)]||a.localeCompare(b)));
 }
-export const categoryColours={'Vegetables':'#368552','Fruits':'#e46c21','Meat':'#b52b42','Fish & Seafood':'#2277b5','Dairy':'#8a60ba','Eggs':'#c39906','Carbohydrates':'#9a653a','Canned Goods':'#507673','Sauces & Condiments':'#bc4b90','Spices':'#b45820','Herbs':'#597b25','Other':'#626573'};
+export const categoryColours={'Vegetables':'#368552','Fruits':'#e46c21','Meat':'#b52b42','Fish & Seafood':'#2277b5','Dairy':'#8a60ba','Eggs':'#c39906','Carbohydrates':'#9a653a','Canned Goods':'#507673','Sauces & Condiments':'#bc4b90','Spices':'#b45820','Herbs':'#597b25','Sweetener':'#b77b13','Essentials':'#54728c','Other':'#626573'};
 let colourOverrides=new Map();
 export function setCategoryColourOverrides(rows){colourOverrides=new Map(rows.filter(row=>typeof row.category==='string'&&/^#[0-9a-f]{6}$/i.test(row.colour)).map(row=>[row.category,row.colour.toLowerCase()]))}
 export function categoryColourOverrides(){return [...colourOverrides].map(([category,colour])=>({category,colour}))}

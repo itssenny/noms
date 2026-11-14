@@ -1,3 +1,4 @@
+import { parseMeasurement } from './measurements.mjs';
 // Only convert quantities whose dimensions are unambiguous.
 const measures={g:['mass',1],kg:['mass',1000],ml:['volume',1],l:['volume',1000],piece:['count',1],pcs:['count',1]};
 export function convertQuantity(quantity,from,to){
@@ -7,7 +8,7 @@ export function convertQuantity(quantity,from,to){
 }
 export function parseRecipeQuantity(value,unit){
  if(['as needed','to taste'].includes(unit)||String(value??'').trim()==='')return null;
- const quantity=Number(value);if(!Number.isFinite(quantity)||quantity<=0)throw new Error('Enter a positive quantity or leave it blank for As needed.');return quantity;
+ const quantity=parseMeasurement(value);if(quantity===null||!Number.isFinite(quantity)||quantity<=0)throw new Error('Enter a positive quantity or leave it blank for As needed.');return quantity;
 }
 export function quantityLabel(quantity,unit,scale=1){
  if(quantity===null||quantity===undefined||quantity==='')return unit==='to taste'?'To taste':'As needed';
