@@ -24,7 +24,28 @@ test('inventory edits save thresholds and unknown low state with owner filters, 
 });
 
 test('focus refreshes with unchanged recipes do not redraw shopping controls during a click',async()=>{
- let callback,redraws=0;const c=vm.createContext({recipes:[{id:'r',name:'Rice',imageUrl:'old'}],activeUserId:'a',sessionVersion:1,currentRecipe:null,location:{hash:'#/meal-plan/shopping'},window:{addEventListener(_name,fn){callback=fn}},document:{querySelector:selector=>selector==='#shopping-view.active'?{}:null},refreshLibrary:async()=>{c.recipes=[{id:'r',name:'Rice',imageUrl:'new-blob'}]},shoppingView(){redraws++},toast(){}});
+ let callback,redraws=0;const c=vm.createContext({recipes:[{id:'r',name:'Rice',imageUrl:'old'}],activeUserId:'a',sessionVersion:1,currentRecipe:null,location:{hash:'#/meal-plan/shopping'},window:{addEventListener(_name,fn){callback=fn}},document:{addEventListener(){},querySelector:selector=>selector==='#shopping-view.active'?{}:null},refreshLibrary:async()=>{c.recipes=[{id:'r',name:'Rice',imageUrl:'new-blob'}]},shoppingView(){redraws++},toast(){}});
  vm.runInContext(source.slice(source.indexOf("window.addEventListener('focus',()=>")),c);callback();await new Promise(setImmediate);assert.equal(redraws,0);
  c.refreshLibrary=async()=>{c.recipes=[]};callback();await new Promise(setImmediate);assert.equal(redraws,1);
+});
+
+test('stock and inactive status save together; restocking reactivates and failures preserve local state',async()=>{
+ const writes=[];let fail=false;const c=vm.createContext({stockDraft,sessionVersion:1,activeUserId:'a',inventory:{Rice:{ingredientId:'rice',qty:10,threshold:2,unit:'g',isActive:true}},categories:{},currentUser:async()=>({id:'a'}),supabase:{from:()=>({update(values){writes.push(values);return this},eq(){return this},select:async()=>fail?{error:{message:'Save failed'}}:{data:[{id:'stock'}]}})}});
+ vm.runInContext(source.slice(source.indexOf('async function saveInventoryEdit('),source.indexOf('function planRecipePhoto(')),c);
+ const values={'edit-inventory-id':'rice','inventory-location':'Pantry','inventory-category':'Grains','stock-mode':'empty','inventory-active':'false','inventory-unit':'g','inventory-threshold':'5'};
+ await c.saveInventoryEdit(data(values));assert.equal(writes.length,1);assert.equal(writes[0].quantity,0);assert.equal(writes[0].is_active,false);assert.equal(c.inventory.Rice.isActive,false);
+ await c.saveInventoryEdit(data({...values,'stock-mode':'exact','inventory-quantity':'12'}));assert.equal(writes[1].is_active,true);assert.equal(c.inventory.Rice.qty,12);assert.equal(c.inventory.Rice.isActive,true);
+ fail=true;await assert.rejects(c.saveInventoryEdit(data(values)),/Save failed/);assert.equal(c.inventory.Rice.qty,12);assert.equal(c.inventory.Rice.isActive,true);
+});
+
+test('inactive control follows unsaved stock changes and resets when stock is restored',()=>{
+ const state={value:'true'},button={dataset:{},setAttribute(){}},hint={};
+ const form={elements:{'stock-mode':{value:'exact'},'inventory-quantity':{value:'10'}},querySelector(selector){return selector==='[name="inventory-active"]'?state:selector==='[data-set-inventory-active]'?button:hint}};
+ const c=vm.createContext({});vm.runInContext(source.slice(source.indexOf('function syncInventoryTracking('),source.indexOf('function addInventoryModal(')),c);
+ c.syncInventoryTracking(form);assert.equal(button.disabled,true);
+ form.elements['stock-mode'].value='empty';c.syncInventoryTracking(form);assert.equal(button.disabled,false);assert.equal(button.dataset.nextActive,'false');
+ state.value='false';c.syncInventoryTracking(form);assert.equal(button.textContent,'Reactivate');
+ form.elements['stock-mode'].value='unknown';c.syncInventoryTracking(form);assert.equal(state.value,'true');assert.equal(button.disabled,true);
+ form.elements['stock-mode'].value='exact';form.elements['inventory-quantity'].value='0';c.syncInventoryTracking(form);assert.equal(button.disabled,false);
+ form.elements['inventory-quantity'].value='';c.syncInventoryTracking(form);assert.equal(button.disabled,true);
 });
