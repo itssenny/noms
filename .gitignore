@@ -5,3 +5,6 @@
 .env.*
 !.env.example
 supabase-config.local.js
+
+# Local Supabase CLI project state
+supabase/.temp/

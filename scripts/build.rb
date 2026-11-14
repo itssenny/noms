@@ -21,8 +21,12 @@ elsif File.exist?('supabase-config.local.js')
   FileUtils.cp('supabase-config.local.js', 'dist/supabase-config.local.js')
 end
 
+FileUtils.mkdir_p('dist/supabase/functions/_shared')
+FileUtils.cp('supabase/functions/_shared/recipe-import.mjs','dist/supabase/functions/_shared/recipe-import.mjs')
+
 FileUtils.cp('db/schema.sql','dist/db/schema.sql')
 FileUtils.cp('db/CANONICAL_INGREDIENTS.md','dist/db/CANONICAL_INGREDIENTS.md')
+FileUtils.cp('db/RECIPE_CATALOG_ROLLOUT.md','dist/db/RECIPE_CATALOG_ROLLOUT.md')
 FileUtils.cp_r('db/supabase','dist/db/supabase')
 FileUtils.cp('.openai/hosting.json','dist/.openai/hosting.json')
 File.write('dist/server/index.js', <<~JS)

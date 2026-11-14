@@ -1,0 +1,4 @@
+# This function verifies the signed-in user with Auth before fetching any URL.
+# Keep auth.getUser(token) in the handler when platform verification is disabled.
+[functions.recipe-import]
+verify_jwt = false

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="atelier.css?v=20261114-cooking-controls" />
+  <link rel="stylesheet" href="atelier.css?v=20261114-time-type" />
 </head>
 <body>
   <section class="auth-view" id="auth-view" aria-labelledby="auth-title">
@@ -82,8 +82,8 @@
         </section>
       </section>
       <section class="view" id="discover-view" aria-labelledby="discover-title">
-        <div class="page-head"><div><p class="eyebrow">DISCOVER</p><h1 id="discover-title">Something good is coming.</h1><p>A new place to find cooking inspiration. Coming soon.</p></div></div>
-        <div class="discover-placeholder" aria-hidden="true"><i data-icon="compass"></i></div>
+        <div class="page-head"><div><p class="eyebrow">DISCOVER</p><h1 id="discover-title">Your next favourite.</h1><p>Original noms starters and recipes shared by public profiles.</p></div></div>
+        <p role="status">Loading recipes…</p>
       </section>
       <section class="view" id="recipes-view"></section>
       <section class="view" id="planner-view"></section>
@@ -98,7 +98,7 @@
   <div id="modal-root"></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="supabase-config.local.js"></script>
-  <script type="module" src="app.js?v=20261114-cooking-controls"></script>
+  <script type="module" src="app.js?v=20261114-time-type"></script>
   <script type="module" src="profile.js?v=20261114-tracking"></script>
   <script type="module" src="auth.js"></script>
 </body>
