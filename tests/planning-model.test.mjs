@@ -14,6 +14,13 @@ test('manual selection buys a stocked ingredient and unselected shortages remain
  const cart=addSelectedIngredients([],rows,['1'],recipes[0],recipes);
  assert.equal(cart.length,1);assert.equal(cart[0].name,'Rice');assert.equal(cart[0].qty,200);assert.equal(cart[0].ingredientId,'rice');
 });
+test('recipe top-up reuses a matching shopping row with an unspecified amount',()=>{
+ const recipe={id:'pasta-recipe',name:'Pasta bake'},row={ingredientId:'pasta',name:'Pasta',need:200,missing:200,unit:'g'};
+ const original=[{id:'pasta-item',ingredientId:'pasta',name:'Pasta',qty:null,unit:'g',checked:false,sources:[]}];
+ const cart=addSelectedIngredients(original,[row],['0'],recipe);
+ assert.equal(cart.length,1);assert.equal(cart[0].id,'pasta-item');assert.equal(cart[0].qty,200);assert.equal(cart[0].unit,'g');
+ assert.deepEqual(cart[0].sourceIds,['pasta-recipe']);assert.equal(original[0].qty,null);
+});
 test('completed, incompatible-unit and different-ID shopping entries do not count as coverage',()=>{
  assert.equal(cartCoverage(rows[0],[{name:'Cream',qty:1,unit:'l',checked:true}]),0);
  assert.equal(cartCoverage(rows[0],[{name:'Cream',qty:5,unit:'cup',checked:false}]),0);

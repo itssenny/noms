@@ -7,7 +7,7 @@ import { mealSlots, moveMeal, weekdays, dateKey, parseDate, dateForDay, shiftWee
 import { icon, renderIcons } from './ui.js';
 import { supabase } from './supabase-client.js';
 import { ingredientPicker, selectedIngredient, presetIngredient, units, ingredientCategories } from './ingredients.js';
-import { convertQuantity, recipeChecks, remainingInventory, quantityLabel, parseRecipeQuantity, needsPurchase } from './cooking.mjs';
+import { convertQuantity, recipeChecks, remainingInventory, quantityLabel, parseRecipeQuantity, needsPurchase, postCookQuantity } from './cooking.mjs';
 import { readAccountState, writeAccountState } from './account-state.mjs';
 import { catalogueView, clearCatalogue } from './catalogue.js';
 import { currentWeek, weekLabel, kitchenSummary } from './calendar.mjs';
@@ -193,24 +193,40 @@ function ingredientRows(r,s=r.servings){return checks(r,s,detailChoices[r.id]||{
 function detail(id,origin='recipes'){detailReturn=origin;let r=recipes.find(x=>x.id===id);currentRecipe=r;$('#detail-view').innerHTML=`<button class="back-btn" data-view="${detailReturn}">← Back to ${detailReturn==='planner'?'meal planner':'recipes'}</button><div class="detail-hero"><div class="detail-image" style="background:${r.bg}">${recipeVisual(r)}</div><div><span class="tag">${r.tags[0]||r.cuisine}</span><h1>${r.name}</h1><p class="detail-copy">One for the regular rotation.</p><div class="facts"><span><b>${r.time}</b> min total</span>${r.prep?`<span><b>${r.prep}</b> min prep</span>`:''}${r.cook?`<span><b>${r.cook}</b> min cook</span>`:''}<span><b>${r.difficulty}</b> difficulty</span><span><b id="recipe-rating-fact">${r.rating?`★ ${r.rating}`:'Not rated'}</b> your rating</span></div><div class="detail-actions"><button class="primary-btn" data-start="${r.id}">Start cooking</button><button class="secondary-btn" data-recipe-shopping="${escapeHtml(r.id)}">Add ingredients to shopping list</button><button class="secondary-btn" data-plan="${r.id}">＋ Add to meal plan</button><button class="secondary-btn" data-edit-recipe="${escapeHtml(r.id)}">Edit recipe</button><button class="clear-btn" data-delete-recipe="${escapeHtml(r.id)}">Delete recipe</button></div></div></div><div class="detail-grid"><section class="panel"><div class="section-heading"><div><p class="eyebrow">WHAT YOU'LL NEED</p><h2>Ingredients</h2></div><label class="servings">Servings <input type="number" id="servings" min="1" value="${r.servings}"></label></div><div id="ingredient-checks">${ingredientRows(r)}</div></section><section class="panel instructions"><p class="eyebrow">METHOD</p><h2>Directions</h2>${r.steps.map((s,i)=>`<div class="instruction"><b>${i+1}</b><p>${s}</p></div>`).join('')}</section></div><section class="panel personal-feedback"><h2>Your rating & personal notes</h2><form id="recipe-feedback-form">${recipeFeedbackFields(r)}<button class="secondary-btn">Save rating & post note</button><p role="status" data-feedback-status></p></form><div class="recipe-note-feed" data-note-recipe="${escapeHtml(r.id)}">${recipeNotesMarkup(r)}</div></section>`;show('detail');loadRecipeNotePosts(id)}
 function cooking(id,servings,planId){if(planId&&plans.find(p=>String(p.id)===String(planId))?.isLeftover)return detail(id,'planner');if($('#planner-view.active'))detailReturn='planner';currentRecipe=recipes.find(x=>x.id===id);if(!currentRecipe)return;let selected=$('#detail-view.active #servings')?.value;cookingServings=Number(servings||selected||currentRecipe.servings);if(!Number.isFinite(cookingServings)||cookingServings<1)return toast('Choose at least one serving');cookingChoices={...(planId?plans.find(p=>String(p.id)===String(planId))?.substitutions:detailChoices[id])};cookingLog={recipeId:id,userId:activeUserId,version:sessionVersion,promise:null};cookStep=0;renderCook()}
 function renderCook(){let r=currentRecipe;if(cookStep>=r.steps.length){recordCookingCompletion();reconcile();openPostCookFeedback();return}$('#cooking-view').innerHTML=`<div class="cook-top"><button data-action="exit-cook">× Exit</button><span>Cooking mode</span><span>${cookStep+1} / ${r.steps.length}</span></div><div class="cook-body"><aside><div class="cook-art" style="background:${r.bg}">${recipeVisual(r)}</div><p class="eyebrow">INGREDIENTS</p>${checks(r,cookingServings,cookingChoices).map(row=>`<div class="cook-ingredient"><span>○</span><b>${escapeHtml(row.name)}${row.substituted?`<small>instead of ${escapeHtml(row.originalName)}</small>`:''}</b><em>${escapeHtml(quantityLabel(row.need,row.unit))}</em></div>`).join('')}</aside><section><div class="progress"><i style="width:${(cookStep+1)/r.steps.length*100}%"></i></div><p class="eyebrow">STEP ${cookStep+1} OF ${r.steps.length}</p><h1>${r.steps[cookStep]}</h1><p class="cook-tip">Take your time. You can move back if you need another look.</p><div class="cook-nav"><button class="secondary-btn" data-action="prev-step" ${cookStep===0?'disabled':''}>← Previous</button><button class="primary-btn" data-action="next-step">${cookStep===r.steps.length-1?'Finish cooking':'Next step →'}</button></div></section></div>`;show('cooking')}
-function reconcile(){let r=currentRecipe;$('#cooking-view').innerHTML=`<div class="reconcile"><p class="eyebrow">DINNER IS READY</p><h1>Update your inventory</h1><p>Review amounts for ${cookingServings} servings. Nothing changes until you confirm.</p><div class="panel reconcile-list">${checks(r,cookingServings,cookingChoices).map((x,index)=>{let update=remainingInventory(x);if(!update)return `<div><strong>${escapeHtml(x.name)}</strong><p>${x.invalidChoice?'Your selected alternative is no longer available. Stock stays unchanged; review this ingredient.':x.quantityUnknown||x.item?.qty===null?'Amount not specified. Stock stays unchanged; adjust it in Inventory if needed.':x.isFlexible?'Amount is up to you. Stock stays unchanged; adjust it in Inventory if needed.':x.item?'Units cannot be compared. Update this ingredient in Inventory.':'Not in your inventory. No stock will be changed.'}</p></div>`;return `<label><span><strong>${escapeHtml(x.name)}</strong><small>${update.before} ${escapeHtml(update.unit)} before</small></span><span>→</span><input type="number" min="0" step="any" value="${update.after}" data-remaining="${index}"><b>${escapeHtml(update.unit)}</b></label>`}).join('')}</div><div class="detail-actions"><button class="primary-btn" data-action="confirm-deduction">Confirm updates</button><button class="secondary-btn" data-action="leave-unchanged">Leave unchanged</button></div></div>`}
+function reconcile(){
+ const r=currentRecipe,rows=checks(r,cookingServings,cookingChoices);
+ $('#cooking-view').innerHTML=`<div class="reconcile"><p class="eyebrow">DINNER IS READY</p><h1>Did you finish any ingredients?</h1><p>Keep the suggested amounts, mark what you used up, or skip this check-in.</p><div class="panel reconcile-list">${rows.map((row,index)=>{
+  const update=remainingInventory(row);
+  if(!row.item||row.invalidChoice)return `<div><strong>${escapeHtml(row.name)}</strong><p>${row.invalidChoice?'Your selected alternative is no longer available. Stock stays unchanged; review this ingredient.':'Not currently tracked. No stock will be changed.'}</p></div>`;
+  const current=row.item.qty===null?'Amount not specified':`${row.item.qty} ${row.item.unit}`;
+  return `<div data-stock-row="${index}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;align-items:center;padding:14px 0;border-bottom:1px solid #ddd"><div><strong>${escapeHtml(row.name)}</strong><small style="display:block">Current: ${escapeHtml(current)}</small></div><label>After cooking<select data-stock-choice="${index}"><option value="unchanged">Leave unchanged</option><option value="unknown">Still have some · amount unknown</option><option value="empty">Used it up</option><option value="exact" ${update?'selected':''}>Set exact amount</option></select></label><div data-remaining-wrap ${update?'':'hidden'}><label>Amount left<input type="number" min="0" step="any" value="${update?.after??''}" data-remaining="${index}" ${update?'':'disabled'}></label><b>${escapeHtml(row.item.unit)}</b></div></div>`;
+ }).join('')}</div><div class="detail-actions"><button class="primary-btn" data-action="confirm-deduction">Save stock updates</button><button class="secondary-btn" data-action="leave-unchanged">Skip check-in</button></div></div>`;
+}
 async function confirmDeduction(button){
  if(button.disabled)return;
  const rows=checks(currentRecipe,cookingServings,cookingChoices),updates=[];
- for(const input of $$('[data-remaining]')){
-  const row=rows[Number(input.dataset.remaining)],qty=Number(input.value);
-  if(!input.value.trim()||!Number.isFinite(qty)||qty<0)return toast('Enter a valid remaining quantity');
-  if(row?.item&&row.compatible)updates.push({key:row.inventoryKey,item:{...row.item,qty}});
- }
+ try{
+  for(const choice of $$('[data-stock-choice]')){
+   const row=rows[Number(choice.dataset.stockChoice)];
+   if(!row?.item||row.invalidChoice)continue;
+   const value=postCookQuantity(choice.value,choice.closest('[data-stock-row]').querySelector('[data-remaining]').value);
+   if(value!==undefined)updates.push({key:row.inventoryKey,item:{...row.item,qty:value}});
+  }
+ }catch(error){return toast(error.message)}
  button.disabled=true;
  try{
   const results=await Promise.allSettled(updates.map(async update=>({key:update.key,item:await upsertInventory(update.key,update.item)})));
   results.forEach(result=>{if(result.status==='fulfilled')inventory[result.value.key]=result.value.item});
   const failed=results.filter(result=>result.status==='rejected');
   if(failed.length){toast('Some updates failed. Saved amounts are kept; review before retrying.');return}
-  show('home');toast('Inventory updated');
+    show('home');toast('Inventory updated');openPostCookFeedback();
  }catch(error){toast(`Inventory update failed: ${error.message}`)}finally{button.disabled=false}
 }
+document.addEventListener('change',event=>{
+ if(!event.target.matches('[data-stock-choice]'))return;
+ const row=event.target.closest('[data-stock-row]'),input=row.querySelector('[data-remaining]'),exact=event.target.value==='exact';
+ row.querySelector('[data-remaining-wrap]').hidden=!exact;input.disabled=!exact;
+});
 function modal(title,body,action='Save'){$('#modal-root').innerHTML=`<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true"><div class="modal-head"><h2>${title}</h2><button data-action="close-modal">×</button></div><form id="modal-form">${body}<div class="modal-actions"><button type="button" class="secondary-btn" data-action="close-modal">Cancel</button><button class="primary-btn">${action}</button></div></form></div></div>`}
 function planModal(id,day='Monday',planId=null,copy=null){
  const existing=planId===null?null:plans.find(p=>String(p.id)===String(planId));
@@ -393,12 +409,13 @@ function recipeFeedbackFields(recipe,postCook=false){
  return `<input type="hidden" name="feedback-recipe" value="${escapeHtml(recipe.id)}"><fieldset class="feedback-rating"><legend>Your rating (optional)</legend><input type="hidden" name="rating" value="${rating}"><div class="rating-buttons">${[1,2,3,4,5].map(value=>`<button type="button" data-rating-value="${value}" aria-label="Rate ${value} out of 5" aria-pressed="${Number(rating)===value}" class="${Number(rating)>=value?'filled':''}">★</button>`).join('')}<button type="button" class="rating-clear" data-rating-value="" aria-label="Clear rating selection">Clear</button></div><small data-rating-label>${rating?`${rating} / 5`:postCook&&recipe.rating?`No new rating · current: ${recipe.rating} / 5`:'Not rated'}</small></fieldset><label class="feedback-notes">${postCook?'Add a personal note (optional)':'New personal note (optional)'}<textarea name="comments" rows="4" maxlength="5000" placeholder="What worked? What would you change?"></textarea></label>`;
 }
 function openPostCookFeedback(){
- const log=cookingLog;if(!log||log.feedbackShown||log.version!==sessionVersion)return;log.feedbackShown=true;
+ const log=cookingLog;if($('#cooking-view.active')||!log||log.feedbackShown||log.version!==sessionVersion)return;log.feedbackShown=true;
  const recipe=recipes.find(recipe=>recipe.id===log.recipeId);if(!recipe)return;
  let dialog=$('#post-cook-feedback');if(!dialog){dialog=document.createElement('dialog');dialog.id='post-cook-feedback';dialog.className='post-cook-feedback';document.body.append(dialog)}
  dialog.innerHTML=`<div class="feedback-heading"><div><h2>How was it?</h2><p>${escapeHtml(recipe.name)}</p></div><button type="button" class="round-btn" data-skip-feedback aria-label="Skip rating and comments">×</button></div><form id="post-cook-feedback-form">${recipeFeedbackFields(recipe,true)}<p class="quantity-hint">Both are optional. A new personal note is saved as its own post.</p><p role="status" data-feedback-status></p><div class="modal-actions"><button type="button" class="secondary-btn" data-skip-feedback>Skip</button><button class="primary-btn">Save & continue</button></div></form>`;
  dialog.querySelectorAll('[data-skip-feedback]').forEach(button=>button.onclick=()=>dialog.close());dialog.showModal();
 }
+document.addEventListener('click',event=>{if(event.target.closest('[data-action="leave-unchanged"]'))openPostCookFeedback()});
 async function saveRecipeFeedback(id,values){
  const version=sessionVersion,user=await currentUser();if(version!==sessionVersion||user.id!==activeUserId)throw new Error('Please sign in again.');
  const recipe=recipes.find(recipe=>recipe.id===id);if(!recipe)throw new Error('Recipe no longer exists.');
