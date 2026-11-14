@@ -89,6 +89,7 @@ function choose(picker, index) {
   unit.value = suggested;}
   const quantity=scope.querySelector('[name="ingredient-quantity"]');if(quantity)quantity.disabled=['as needed','to taste'].includes(suggested);
   close(picker);
+  picker.dispatchEvent?.(new CustomEvent('noms-ingredient-selected',{bubbles:true,detail:{ingredient}}));
   picker.querySelector('input').focus();
 }
 async function update(picker) {

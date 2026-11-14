@@ -1,0 +1,78 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const {PGlite}=await import(process.env.PGLITE_MODULE);
+const sql=async name=>readFile(new URL(`../db/supabase/${name}`,import.meta.url),'utf8');
+const a='00000000-0000-0000-0000-000000000001',b='00000000-0000-0000-0000-000000000002';
+test('privacy lifecycle, masked profiles, private notes, saves, owner writes and protected covers',async()=>{
+ const db=new PGlite();try{
+ await db.exec(`create role anon;create role authenticated;create schema auth;
+ create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}',created_at timestamptz default now());
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;
+ create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+ create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text);alter table storage.objects enable row level security;
+ grant usage on schema storage to authenticated;grant select,insert,update,delete on storage.objects to authenticated;
+ create function storage.foldername(text) returns text[] language sql immutable as $$select string_to_array($1,'/')$$;
+ insert into auth.users(id) values ('${a}'),('${b}');`);
+ await db.exec((await sql('001_core_recipe_inventory.sql')).replace('create extension if not exists pgcrypto;',''));
+ for(const name of ['002_profiles.sql','003_recipe_manual_entry.sql','007_editable_ingredient_catalogue.sql','008_optional_recipe_quantities.sql','010_recipe_note_posts.sql'])await db.exec(await sql(name));
+ await db.exec(`insert into profiles(id,username,display_name,bio) values ('${a}','alice','Alice','Secret bio'),('${b}','bob','Bob','B bio');`);
+ const recipe=(await db.query(`insert into recipes(user_id,name,rating,notes,last_cooked_at,image_url) values ('${a}','Soup',5,'Secret note',now(),'${a}/cover.jpg') returning id`)).rows[0].id;
+ const custom=(await db.query(`insert into ingredients(canonical_name,created_by) values ('My spice','${a}') returning id`)).rows[0].id;
+ await db.exec(`insert into recipe_ingredients(recipe_id,ingredient_id,quantity,unit) values ('${recipe}','${custom}',1,'g');insert into storage.objects(bucket_id,name) values ('recipe-covers','${a}/cover.jpg');`);
+ await db.exec(await sql('016_profile_recipe_privacy.sql'));await db.exec(await sql('016_profile_recipe_privacy.sql'));
+ assert.equal((await db.query("select username from profiles where id=$1",[a])).rows[0].username,'alice');
+ await db.exec(`insert into auth.users(id) values ('00000000-0000-0000-0000-000000000003');insert into recipe_notes(recipe_id,user_id,body) values ('${recipe}','${a}','Private post');`);
+ assert.equal((await db.query("select is_private from profiles where id='00000000-0000-0000-0000-000000000003'")).rows[0].is_private,true);
+ assert.equal((await db.query('select visibility from recipes')).rows[0].visibility,'private');
+ assert.equal((await db.query('select is_private from profiles limit 1')).rows[0].is_private,true);
+ assert.equal((await db.query("select public from storage.buckets where id='recipe-covers'")).rows[0].public,false);
+ const as=async id=>db.exec(`set role authenticated;set request.jwt.claim.sub='${id}'`);
+ const visible=async()=> (await db.query('select get_visible_recipe($1) value',[recipe])).rows[0].value;
+ const profile=async()=> (await db.query("select get_visible_profile('alice') value")).rows[0].value;
+ const saves=async()=> (await db.query('select get_saved_recipes() value')).rows[0].value;
+ const cover=async()=> (await db.query("select * from storage.objects where bucket_id='recipe-covers'")).rows;
+ await as(b);assert.equal(await visible(),null);assert.equal((await cover()).length,0);
+ assert.deepEqual(Object.keys(await profile()).sort(),['avatar_url','id','is_private','username']);
+ assert.equal((await db.query('select * from recipes')).rows.length,0);
+ await assert.rejects(db.exec(`insert into saved_recipes values ('${b}','${recipe}',now())`),/row-level security/);
+ await as(a);await db.exec(`update recipes set visibility='public' where id='${recipe}'`);
+ await as(b);assert.equal(await visible(),null); // Private profile overrides public recipe.
+ await as(a);await db.exec('update profiles set is_private=false,show_diet=true where id=auth.uid()');
+ await as(b);let document=await visible();assert.equal(document.name,'Soup');assert.equal(document.creator.username,'alice');
+ for(const key of ['rating','notes','last_cooked_at'])assert.equal(key in document,false);
+ assert.equal(document.recipe_ingredients[0].ingredient.id,custom);assert.equal((await db.query('select * from ingredients')).rows.length,0);
+ assert.equal((await cover()).length,1);
+ await as(a);await db.exec(`update recipes set image_url='https://example.supabase.co/storage/v1/object/public/recipe-covers/${a}/cover.jpg' where id='${recipe}'`);await as(b);assert.equal((await cover()).length,1);
+ assert.equal((await profile()).diet_preference,'Everything');assert.equal((await profile()).cooking_level,null);
+ await db.exec(`insert into saved_recipes(user_id,recipe_id) values ('${b}','${recipe}')`);
+ await assert.rejects(db.exec(`insert into saved_recipes(user_id,recipe_id) values ('${b}','${recipe}')`),/duplicate key/);
+ assert.equal((await saves())[0].recipe.id,recipe);
+ assert.equal((await db.query('select * from recipes')).rows.length,0); // Saved is never Created.
+ assert.equal((await db.query('select * from recipe_notes')).rows.length,0);
+ assert.equal((await db.query(`update recipes set name='Hacked' where id='${recipe}' returning id`)).rows.length,0);
+ assert.equal((await db.query(`delete from recipes where id='${recipe}' returning id`)).rows.length,0);
+ assert.equal((await db.query(`update profiles set is_private=true where id='${a}' returning id`)).rows.length,0);
+ await assert.rejects(db.query('select update_recipe($1,$2,$3)',[recipe,'{}','[]']),/access denied/);
+ await assert.rejects(db.exec(`insert into saved_recipes(user_id,recipe_id) values ('${a}','${recipe}')`),/row-level security/);
+ await assert.rejects(db.query('select recipe_public_document($1)',[recipe]),/permission denied/);
+ // Attacker cannot use their own recipe to grant access to someone else's cover.
+ await as(a);await db.exec('update profiles set is_private=true where id=auth.uid()');
+ await as(b);await db.exec(`insert into recipes(user_id,name,image_url) values ('${b}','Forged','${a}/cover.jpg')`);
+ assert.equal((await cover()).length,0);assert.equal(await visible(),null);assert.equal((await saves())[0].recipe,null);
+ await as(a);assert.equal((await db.query('select * from recipes')).rows.length,1);assert.equal((await cover()).length,1);
+ assert.equal((await profile()).bio,'Secret bio');assert.equal((await db.query('select visibility from recipes')).rows[0].visibility,'public');
+ await db.exec('update profiles set is_private=false where id=auth.uid()');
+ await as(b);assert.equal((await saves())[0].recipe.name,'Soup');
+ await as(a);await db.exec("update recipes set visibility='private' where user_id=auth.uid()");
+ await as(b);assert.equal(await visible(),null);assert.equal((await saves())[0].recipe,null);
+ await as(a);await db.exec("update recipes set visibility='public' where user_id=auth.uid()");
+ await as(b);await db.exec(`delete from saved_recipes where recipe_id='${recipe}'`);assert.equal((await saves()).length,0);assert.equal((await visible()).name,'Soup');
+ await as(a);await assert.rejects(db.exec(`insert into saved_recipes(user_id,recipe_id) values ('${a}','${recipe}')`),/row-level security/);
+ await as(b);await db.exec(`insert into saved_recipes(user_id,recipe_id) values ('${b}','${recipe}')`);
+ await as(a);await db.exec(`delete from recipes where id='${recipe}'`);
+ await as(b);assert.equal((await saves()).length,0);assert.equal(await visible(),null);
+ await db.exec("reset role;set role anon;set request.jwt.claim.sub=''");await assert.rejects(db.query('select get_visible_recipe($1)',[recipe]),/permission denied/);
+ }finally{await db.close()}
+});

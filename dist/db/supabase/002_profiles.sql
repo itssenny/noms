@@ -1,4 +1,4 @@
--- Mise & Meal Profile v1. Run after 001_core_recipe_inventory.sql.
+-- noms Profile v1. Run after 001_core_recipe_inventory.sql.
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,

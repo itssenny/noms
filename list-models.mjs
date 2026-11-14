@@ -1,3 +1,4 @@
+import {stockStatus} from './stock-model.mjs';
 const difficulty={Easy:0,Medium:1,Hard:2};
 export function filterRecipes(recipes,{search='',ready=false,difficulty:level='',tag='',sort='az'}={},readyIds=[]){
  const text=search.trim().toLowerCase(),available=new Set(readyIds);
@@ -5,7 +6,7 @@ export function filterRecipes(recipes,{search='',ready=false,difficulty:level=''
  const rank=recipe=>sort.startsWith('time')?recipe.time:sort.startsWith('rating')?(recipe.rating||0):(difficulty[recipe.difficulty]??3);
  return rows.sort((a,b)=>sort==='az'?a.name.localeCompare(b.name):sort==='za'?b.name.localeCompare(a.name):((rank(a)-rank(b))*(sort.endsWith('desc')?-1:1)||a.name.localeCompare(b.name)));
 }
-export function inventoryStatus(item){return item.qty===null?'stock':item.qty<=0?'out':item.qty<=item.threshold?'low':'stock'}
+export function inventoryStatus(item){return stockStatus(item)}
 export function filterInventory(inventory,{search='',location='all',sort='az'}={}){
  const rank=sort==='stock'?{stock:0,low:1,out:2}:{out:0,low:1,stock:2},text=search.trim().toLowerCase();
  return Object.entries(inventory).filter(([name,item])=>name.toLowerCase().includes(text)&&(location==='all'||item.location===location)).sort(([a,x],[b,y])=>sort==='za'?b.localeCompare(a):sort==='az'?a.localeCompare(b):(rank[inventoryStatus(x)]-rank[inventoryStatus(y)]||a.localeCompare(b)));

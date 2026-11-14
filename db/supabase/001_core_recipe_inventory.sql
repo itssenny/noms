@@ -1,4 +1,4 @@
--- Mise & Meal: initial Supabase schema for recipes and inventory.
+-- noms: initial Supabase schema for recipes and inventory.
 --
 -- Assumptions:
 --   * Supabase Auth is the source of users; no public.users table is needed.

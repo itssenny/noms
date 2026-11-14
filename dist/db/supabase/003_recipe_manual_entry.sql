@@ -1,4 +1,4 @@
--- Mise & Meal manual recipe entry enhancements. Run after 002_profiles.sql.
+-- noms manual recipe entry enhancements. Run after 002_profiles.sql.
 
 alter table public.recipes
   add column if not exists total_minutes integer

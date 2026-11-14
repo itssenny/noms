@@ -1,8 +1,9 @@
+import {ingredientDefaults,saveIngredientDefaults} from './ingredient-defaults.js';
 import {categoryColour,defaultCategoryColour} from './list-models.mjs';
 import {categoryColourIssue,saveCategoryColours} from './category-colours.js';
 import {substitutionRules,substitutionIssue,loadSubstitutions,addSubstitution,removeSubstitution} from './substitutions.js';
 import {supabase} from './supabase-client.js';
-import {units,ingredientCategories,ingredientPicker,selectedIngredient,escapeIngredientHtml as html,catalogueError,saveCatalogueIngredient} from './ingredients.js';
+import {units,ingredientCategories,ingredientPicker,selectedIngredient,escapeIngredientHtml as html,catalogueError,saveCatalogueIngredient} from './ingredients.js?v=20261114-defaults';
 let version=0,rows=[],owner=null;
 export function clearCatalogue(){version++;rows=[];owner=null;document.querySelector('#catalogue-editor')?.remove()}
 export async function catalogueView(){
@@ -24,18 +25,20 @@ export async function catalogueView(){
 function renderRows(query){
  const filtered=rows.filter(row=>row.canonical_name.toLowerCase().includes(query.trim().toLowerCase()));
  document.querySelector('#catalogue-count').textContent=`${filtered.length} ingredients${rows.length===1000?' (first 1,000 shown)':''}`;
- document.querySelector('#catalogue-list').innerHTML=filtered.length?filtered.map(row=>`<div class="catalogue-row"><div><strong><span class="category-dot" style="background:${categoryColour(row.category||'Other')}" aria-hidden="true"></span>${html(row.canonical_name)}</strong><small>${html(row.category)} · ${html(row.default_unit)} · ${row.created_by===owner?'Yours':'Shared'}</small></div>${row.created_by===owner?`<button class="secondary-btn" data-catalogue-edit="${html(row.id)}">Edit</button>`:''}</div>`).join(''):'<p>No ingredients found. Add one above. If you want the starter ingredients, apply database seed 005 in Supabase.</p>';
+ document.querySelector('#catalogue-list').innerHTML=filtered.length?filtered.map(row=>`<div class="catalogue-row"><div><strong><span class="category-dot" style="background:${categoryColour(row.category||'Other')}" aria-hidden="true"></span>${html(row.canonical_name)}</strong><small>${html(row.category)} · ${html(row.default_unit)} · ${row.created_by===owner?'Yours':'Shared'}</small></div><div class="catalogue-row-actions"><button class="secondary-btn" data-catalogue-edit="${html(row.id)}">Edit</button></div></div>`).join(''):'<p>No ingredients found. Add one above. If you want the starter ingredients, apply database seed 005 in Supabase.</p>';
 }
-function editIngredient(id=null){
- const row=id?rows.find(row=>row.id===id&&row.created_by===owner):null;
+async function editIngredient(id=null){
+ const row=id?rows.find(row=>row.id===id):null;
  if(id&&!row)return;
+ const current=version;let defaults=null;try{if(row)defaults=await ingredientDefaults(row.id)}catch(error){alert(error.message);return}if(current!==version)return;
  let editor=document.querySelector('#catalogue-editor');if(!editor){editor=document.createElement('dialog');editor.id='catalogue-editor';editor.className='catalogue-editor-dialog';editor.setAttribute('aria-labelledby','catalogue-editor-title');document.body.append(editor)}
- editor.innerHTML=`<form id="catalogue-form" class="panel catalogue-form"><h2 id="catalogue-editor-title">${row?'Edit ingredient':'Add ingredient'}</h2>${row?`<input type="hidden" name="id" value="${html(row.id)}">`:''}<label>Name<input name="name" required maxlength="100" value="${html(row?.canonical_name||'')}"></label><label>Category<select name="category">${ingredientCategories.map(x=>`<option ${x===(row?.category||'Other')?'selected':''}>${html(x)}</option>`).join('')}</select></label><label>Default unit<select name="unit">${units.map(x=>`<option ${x===(row?.default_unit||'piece')?'selected':''}>${html(x)}</option>`).join('')}</select></label><p role="status" id="catalogue-save-status"></p><button class="primary-btn">${row?'Save changes':'Add ingredient'}</button><button type="button" class="secondary-btn" data-catalogue-cancel>Cancel</button></form>`;
+ editor.innerHTML=`<form id="catalogue-form" class="panel catalogue-form"><h2 id="catalogue-editor-title">${row?'Edit ingredient':'Add ingredient'}</h2>${row?`<input type="hidden" name="id" value="${html(row.id)}">`:''}<label>Name<input name="name" ${row&&row.created_by!==owner?'readonly':''} required maxlength="100" value="${html(row?.canonical_name||'')}"></label><label>Category<select name="category" ${row&&row.created_by!==owner?'disabled':''}>${ingredientCategories.map(x=>`<option ${x===(row?.category||'Other')?'selected':''}>${html(x)}</option>`).join('')}</select></label><label>Default unit<select name="unit">${units.map(x=>`<option ${x===(defaults?.default_unit||row?.default_unit||'piece')?'selected':''}>${html(x)}</option>`).join('')}</select></label><label>Default location<select name="location">${['Fridge','Freezer','Pantry'].map(x=>`<option ${x===(defaults?.storage_location||'Pantry')?'selected':''}>${x}</option>`).join('')}</select></label><label>Low stock at or below<input name="threshold" type="number" min="0" step="any" required value="${defaults?.low_stock_threshold??0}"></label><p>These defaults apply when adding inventory. Saving here does not add or change stock.</p><p role="status" id="catalogue-save-status"></p><button class="primary-btn">${row?'Save changes':'Add ingredient'}</button><button type="button" class="secondary-btn" data-catalogue-cancel>Cancel</button></form>`;
  editor.onclick=event=>{if(event.target===editor){const box=editor.getBoundingClientRect();if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)editor.close()}};if(!editor.open)editor.showModal();
  editor.querySelector('[name="name"]').focus();
 }
 document.addEventListener('input',event=>{if(event.target.id==='catalogue-search')renderRows(event.target.value)});
 document.addEventListener('click',event=>{
+
  if(event.target.closest('[data-catalogue-retry]'))catalogueView();
  if(event.target.closest('[data-catalogue-new]'))editIngredient();
  const edit=event.target.closest('[data-catalogue-edit]');if(edit)editIngredient(edit.dataset.catalogueEdit);
@@ -47,7 +50,10 @@ document.addEventListener('submit',async event=>{
  if(button.disabled)return;button.disabled=true;
  const data=new FormData(form),status=form.querySelector('#catalogue-save-status');status.textContent='Saving…';
  try{
-  await saveCatalogueIngredient({id:data.get('id'),name:data.get('name'),category:data.get('category'),unit:data.get('unit')});
+  const existing=rows.find(row=>row.id===data.get('id'));
+  const ingredient=existing&&existing.created_by!==owner?existing:await saveCatalogueIngredient({id:data.get('id'),name:data.get('name'),category:data.get('category'),unit:data.get('unit')});
+  if(current!==version)return;
+  await saveIngredientDefaults(ingredient.id,{unit:data.get('unit'),location:data.get('location'),threshold:Number(data.get('threshold'))},owner);
   if(current!==version)return;
   window.dispatchEvent(new CustomEvent('mise-catalogue-updated'));
   await catalogueView();

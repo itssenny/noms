@@ -1,0 +1,17 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import vm from 'node:vm';
+const {PGlite}=await import(process.env.PGLITE_MODULE);const sql=async name=>readFile(new URL(`../db/supabase/${name}`,import.meta.url),'utf8');
+const a='00000000-0000-0000-0000-000000000001',b='00000000-0000-0000-0000-000000000002';
+test('catalogue defaults remain private and never create inventory, including migration replay',async()=>{const db=new PGlite();try{
+ await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;insert into auth.users values ('${a}'),('${b}');`);
+ await db.exec((await sql('001_core_recipe_inventory.sql')).replace('create extension if not exists pgcrypto;',''));await db.exec(await sql('007_editable_ingredient_catalogue.sql'));
+ const ingredient=(await db.query("insert into ingredients(canonical_name) values ('Rice') returning id")).rows[0].id;
+ await db.exec(await sql('018_ingredient_preferences.sql'));await db.exec(await sql('018_ingredient_preferences.sql'));
+ await db.exec(`set role authenticated;set request.jwt.claim.sub='${a}';insert into ingredient_preferences values ('${a}','${ingredient}','kg','Pantry',2)`);
+ assert.equal((await db.query('select * from inventory')).rows.length,0);
+ await db.exec(`set request.jwt.claim.sub='${b}'`);assert.equal((await db.query('select * from ingredient_preferences')).rows.length,0);
+ await assert.rejects(db.exec(`insert into ingredient_preferences values ('${a}','${ingredient}','g','Fridge',1)`),/row-level security/);
+ }finally{await db.close()}});
+const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
+function autofill(){let handler,resolve;const fields=['g','Fridge','0'].map(value=>({value})),listeners={};const form={id:'modal-form',isConnected:true,querySelector:()=>true,elements:{namedItem:name=>fields[['unit','location','threshold'].indexOf(name)]},addEventListener:(name,fn)=>listeners[name]=fn,removeEventListener:()=>{}};const picker={closest:()=>form};const context=vm.createContext({document:{addEventListener:(name,fn)=>handler=fn},sessionVersion:1,ingredientDefaults:()=>new Promise(r=>resolve=r),toast:()=>{}});let start=app.indexOf("document.addEventListener('noms-ingredient-selected'");vm.runInContext(app.slice(start,app.indexOf('\n});',start)+5),context);return {fields,form,listeners,context,run:()=>handler({target:picker,detail:{ingredient:{id:'rice',default_unit:'g'}}}),resolve:value=>resolve(value)}}
+test('inventory selection uses saved defaults and preserves manual overrides during loading',async()=>{const f=autofill(),pending=f.run();f.fields[0].value='ml';f.listeners.change({target:f.fields[0]});f.resolve({default_unit:'kg',storage_location:'Freezer',low_stock_threshold:3});await pending;assert.deepEqual(f.fields.map(x=>x.value),['ml','Freezer','3'])});
+test('late defaults cannot overwrite the next selection or another account',async()=>{const f=autofill(),pending=f.run();f.context.sessionVersion=2;f.resolve({default_unit:'kg',storage_location:'Freezer',low_stock_threshold:3});await pending;assert.deepEqual(f.fields.map(x=>x.value),['g','Fridge','0'])});

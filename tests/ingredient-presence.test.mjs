@@ -1,0 +1,18 @@
+import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFile} from 'node:fs/promises';import {ingredientPresenceStock} from '../stock-model.mjs';
+test('checking presence preserves exact stock and metadata; new stock is unknown and unchecking is zero',()=>{
+ const item={id:'stock',ingredientId:'rice',qty:42,unit:'g',threshold:15,location:'Freezer',categoryOverride:'My grains'};
+ const row={ingredientId:'rice',unit:'kg',item};let next=ingredientPresenceStock(row,true);assert.deepEqual(next,{...item,stockStatus:null});assert.equal(item.qty,42);
+ next=ingredientPresenceStock(row,false);assert.equal(next.qty,0);assert.equal(next.threshold,15);assert.equal(next.location,'Freezer');assert.equal(next.categoryOverride,'My grains');
+ next=ingredientPresenceStock({ingredientId:'new',unit:'to taste'},true);assert.equal(next.qty,null);assert.equal(next.unit,'piece');assert.equal(next.location,'Pantry');
+ next=ingredientPresenceStock({ingredientId:'substitute',unit:'g',item:{qty:0,threshold:5,unit:'g'}},true);assert.equal(next.qty,null);assert.equal(next.ingredientId,'substitute');assert.equal(next.threshold,5);
+});
+const source=await readFile(new URL('../app.js',import.meta.url),'utf8');
+function harness(){const calls=[],row={name:'Rice',ingredientId:'rice',inventoryKey:'Rice',unit:'g',item:{ingredientId:'rice',qty:10,unit:'g',threshold:3,location:'Fridge'}},c=vm.createContext({ingredientPresenceStock,sessionVersion:1,activeUserId:'a',currentUser:async()=>({id:'a'}),recipes:[{id:'r',servings:2}],currentRecipe:{id:'r'},detailChoices:{},inventory:{Rice:row.item},categories:{Rice:'Grains'},checks:()=>[row],$:selector=>selector==='#servings'?{value:'2'}:null,home(){},upsertInventory:async(name,item,userId)=>{calls.push({name,item,userId});return item}});
+ vm.runInContext(source.slice(source.indexOf('async function setRecipeIngredientPresence('),source.indexOf("document.addEventListener('change',async event=>{\n const control=")),c);return{c,calls,row};}
+test('recipe checkboxes write current user stock only after success and retain personal thresholds',async()=>{const {c,calls}=harness();await c.setRecipeIngredientPresence('r',0,false);assert.equal(c.inventory.Rice.qty,0);assert.equal(c.inventory.Rice.threshold,3);assert.equal(calls[0].userId,'a');});
+test('failed stock writes and account changes leave inventory untouched',async()=>{const {c}=harness();c.upsertInventory=async()=>{throw new Error('offline')};await assert.rejects(c.setRecipeIngredientPresence('r',0,false),/offline/);assert.equal(c.inventory.Rice.qty,10);
+ const other=harness();let finish;other.c.upsertInventory=()=>new Promise(resolve=>{finish=resolve});const pending=other.c.setRecipeIngredientPresence('r',0,false);await new Promise(setImmediate);other.c.sessionVersion++;other.c.activeUserId='b';finish({qty:0});await pending;assert.equal(other.c.inventory.Rice.qty,10);
+});
+test('a failed checkbox action restores its checked state and reenables the control',async()=>{let listener;const messages=[],control={checked:true,disabled:false,isConnected:true,dataset:{stockRecipe:'r',recipeStock:'0'}};const c=vm.createContext({sessionVersion:1,document:{addEventListener(_type,fn){listener=fn}},setRecipeIngredientPresence:async()=>{throw new Error('offline')},toast:text=>messages.push(text)});
+ vm.runInContext(source.slice(source.indexOf("document.addEventListener('change',async event=>{\n const control="),source.indexOf('\nasync function detail(')),c);await listener({target:{closest:()=>control}});assert.equal(control.checked,false);assert.equal(control.disabled,false);assert.match(messages[0],/offline/);
+});

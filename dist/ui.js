@@ -1,5 +1,6 @@
 // A small local outline icon set: no external runtime or network dependency.
 const shapes={
+ compass:'<circle cx="12" cy="12" r="9"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5L16 8Z"/>',
  cartPlus:'<path d="M2 3h3l3 12h11l2-8H6M9 20h.01M18 20h.01M12 6h6m-3-3v6"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/>',
  house:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>',
  book:'<path d="M12 5v16M12 5C9 3 6 3 3 4v15c3-1 6-1 9 2 3-3 6-3 9-2V4c-3-1-6-1-9 1Z"/>',
