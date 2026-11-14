@@ -1,7 +1,8 @@
-import { parseMeasurement } from './measurements.mjs';
+import { parseMeasurement, normalizeUnit, measures as measurementUnits } from './measurements.mjs';
 // Only convert quantities whose dimensions are unambiguous.
-const measures={g:['mass',1],kg:['mass',1000],ml:['volume',1],l:['volume',1000],piece:['count',1],pcs:['count',1]};
+const measures={...measurementUnits,piece:['count',1],pcs:['count',1]};
 export function convertQuantity(quantity,from,to){
+ from=normalizeUnit(from);to=normalizeUnit(to);
  if(from===to&&from!=='other')return quantity;
  const a=measures[from],b=measures[to];
  return a&&b&&a[0]===b[0]?quantity*a[1]/b[1]:null;
@@ -13,6 +14,13 @@ export function parseRecipeQuantity(value,unit){
 export function quantityLabel(quantity,unit,scale=1){
  if(quantity===null||quantity===undefined||quantity==='')return unit==='to taste'?'To taste':'As needed';
  return `${Number((quantity*scale).toFixed(3))} ${unit}`;
+}
+export function hasIngredientStock(row){return !!row.item&&row.item.isActive!==false&&(row.item.qty===null||row.item.qty>0)}
+export function recipeAvailabilityLabel(rows){
+ const absent=rows.filter(row=>!hasIngredientStock(row)).length;
+ const units=rows.filter(row=>hasIngredientStock(row)&&row.compatible===false).length;
+ const short=rows.filter(row=>hasIngredientStock(row)&&row.compatible!==false&&needsPurchase(row)).length;
+ return [absent?`Missing ${absent}`:'',short?`Top up ${short}`:'',units?`Check units ${units}`:''].filter(Boolean).join(' · ')||'Ready to cook';
 }
 export function needsPurchase(row){return row.isFlexible?row.status==='missing':row.missing>0}
 export function recipeChecks(recipe,inventory,servings=recipe.servings,rules=[],choices={}){
@@ -35,7 +43,7 @@ export function recipeChecks(recipe,inventory,servings=recipe.servings,rules=[],
   const metadata={name,originalName,originalId,choiceKey:key,substituted:!!selected,invalidChoice:!!choices[key]&&!selected,alternatives,unit,note,ingredientId,item,inventoryKey};
   if(flexible)return {...metadata,need:null,have:item?.qty||0,missing:null,isFlexible:true,compatible:true,status:item&&(item.qty===null||item.qty>0)?'ready':'missing'};
   const need=qty*servings/recipe.servings;if(item?.qty===null)return {...metadata,need,have:null,missing:null,compatible:true,quantityUnknown:true,status:'ready'};const converted=item?convertQuantity(item.qty,item.unit,unit):0;
-  const compatible=converted!==null,have=converted??0,missing=Math.max(0,need-have);
+  const compatible=converted!==null,have=converted??0,difference=need-have,missing=difference>Math.max(1,Math.abs(need),Math.abs(have))*1e-10?difference:0;
   return {...metadata,need,have,missing,compatible,status:missing===0?(item&&item.qty<=item.threshold?'low':'ready'):(have>0?'partial':'missing')};
  });
 }

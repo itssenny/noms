@@ -1,6 +1,6 @@
 export function feedbackPatch(recipe,{rating='',notes='',append=false}){
  const patch={},value=String(rating??'').trim(),text=String(notes??'').trim();
- if(value){const number=Number(value);if(!Number.isFinite(number)||number<1||number>5)throw new Error('Choose a rating between 1 and 5.');patch.rating=number}
+ if(value){const number=Number(value);if(!Number.isFinite(number)||number<1||number>5||(!Number.isInteger(number)&&number!==recipe.rating))throw new Error('Choose a rating between 1 and 5.');if(Number.isInteger(number))patch.rating=number}
  else if(!append)patch.rating=null;
  if(text.length>5000)throw new Error('Keep new notes under 5,000 characters.');
  if(text)patch.note=text;

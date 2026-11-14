@@ -28,6 +28,9 @@ export function displayMeasurement(quantity,unit,system='metric',ingredient=null
  if(value===null)return {quantity:null,unit};
  const scaled=value*(Number.isFinite(scale)&&scale>0?scale:1);
  if(!measure)return {quantity:scaled,unit};
+ // Spoon measures are useful in both displays. Preserve the source spoon
+ // quantity rather than replacing it with grams or milliliters in Metric.
+ if(['tbsp','tsp'].includes(normalized))return {quantity:scaled,unit:normalized};
  // Preserve source quantities in their own system; always derive from source.
  const sourceSystem=['g','kg','ml','l'].includes(normalized)?'metric':'us';
  if(sourceSystem===system)return {quantity:scaled,unit:normalized==='l'?'L':normalized};

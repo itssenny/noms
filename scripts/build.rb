@@ -5,7 +5,7 @@ FileUtils.rm_rf('dist')
 FileUtils.mkdir_p('dist/db')
 FileUtils.mkdir_p('dist/server')
 FileUtils.mkdir_p('dist/.openai')
-%w[index.html styles.css atelier.css ui.js category-colours.js ingredient-defaults.js list-models.mjs stock-model.mjs shopping-extra.mjs feedback.mjs gallery.mjs substitutions.js planning.mjs app.js catalogue.js calendar.mjs account-state.mjs cooking.mjs cover-framing.mjs crop-geometry.mjs recipe-tags.mjs cover-editor.js measurements.mjs measurement-data.js ingredients.js auth.js profile.js supabase-client.js supabase-config.example.js ARCHITECTURE.md MEASUREMENTS.md].each{|f|FileUtils.cp(f,"dist/#{f}")}
+%w[index.html styles.css atelier.css ui.js category-colours.js ingredient-defaults.js list-models.mjs stock-model.mjs shopping-extra.mjs feedback.mjs gallery.mjs substitutions.js planning.mjs app.js catalogue.js calendar.mjs cookbooks.js account-state.mjs cooking.mjs cover-framing.mjs crop-geometry.mjs recipe-tags.mjs cover-editor.js measurements.mjs measurement-data.js ingredients.js auth.js profile.js supabase-client.js supabase-config.example.js ARCHITECTURE.md MEASUREMENTS.md].each{|f|FileUtils.cp(f,"dist/#{f}")}
 
 supabase_url = ENV['SUPABASE_URL']
 supabase_publishable_key = ENV['SUPABASE_PUBLISHABLE_KEY']
@@ -29,6 +29,7 @@ FileUtils.cp('supabase/functions/_shared/recipe-import.mjs','dist/supabase/funct
 FileUtils.cp('db/schema.sql','dist/db/schema.sql')
 FileUtils.cp('db/CANONICAL_INGREDIENTS.md','dist/db/CANONICAL_INGREDIENTS.md')
 FileUtils.cp('db/RECIPE_CATALOG_ROLLOUT.md','dist/db/RECIPE_CATALOG_ROLLOUT.md')
+FileUtils.cp('db/COOKBOOKS_ROLLOUT.md','dist/db/COOKBOOKS_ROLLOUT.md')
 FileUtils.cp_r('db/supabase','dist/db/supabase')
 FileUtils.cp('.openai/hosting.json','dist/.openai/hosting.json')
 File.write('dist/server/index.js', <<~JS)

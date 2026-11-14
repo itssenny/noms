@@ -239,3 +239,88 @@ svg rect{rx:0;ry:0}
 .comment-copy>p{margin:8px 0 0;font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:900px){.recipe-feedback-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:380px){.public-comment{grid-template-columns:30px minmax(0,1fr);gap:8px;padding:12px}.comment-avatar{width:30px;height:30px}}
+
+/* Recipe detail: aligned steps and compact feedback controls. */
+#detail-view :is(.feedback-notes textarea,#recipe-comment-form textarea){resize:none}
+#detail-view .instruction{grid-template-columns:34px minmax(0,1fr);align-items:start}
+#detail-view .instruction>p{margin:0;min-width:0;line-height:30px;overflow-wrap:anywhere}
+#detail-view .comment-avatar,#detail-view .comment-avatar img{border-radius:50%!important}
+#detail-view .comment-heading{flex-wrap:nowrap;align-items:start;justify-content:space-between}
+.note-post-heading time{display:block;font-size:11px;color:var(--muted)}
+#detail-view .feedback-delete{display:inline-grid;place-items:center;flex-shrink:0;width:32px;height:32px;padding:7px;border-radius:8px;color:var(--muted);text-decoration:none}
+#detail-view .feedback-delete .app-icon{width:16px;height:16px}
+#detail-view .feedback-delete:hover{color:var(--burgundy);background:var(--pink)}
+#detail-view .feedback-delete:focus-visible{outline:2px solid var(--burgundy);outline-offset:2px}
+
+/* The avatar sits beside the framed comment, outside its surface. */
+#detail-view .public-comment{padding:0;border:0;background:transparent;gap:12px}
+#detail-view .comment-copy{padding:14px 16px;border:1px solid #000;background:#ffffffa8}
+#detail-view .comment-avatar{border:2px solid #000;box-sizing:border-box}
+#detail-view .comment-meta{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 7px;min-width:0}
+#detail-view .comment-meta time{font-size:11px;color:var(--muted)}
+#detail-view .comment-separator{color:var(--muted)}
+#detail-view .comment-heading .feedback-delete{margin-top:-6px;margin-right:-8px}
+@media(max-width:380px){#detail-view .public-comment{gap:8px}#detail-view .comment-copy{padding:12px}}
+
+/* The full recipe photo matches the square crop; library cards keep their format. */
+#detail-view .recipe-overview .detail-image{position:relative;width:100%;height:auto;aspect-ratio:1 / 1;min-width:0}
+#detail-view .recipe-overview .detail-image>img{position:absolute;inset:0;display:block;width:100%;height:100%}
+#detail-view .recipe-overview .detail-image .cover-fallback{height:100%;min-height:0;box-sizing:border-box}
+/* Homepage grid cards fill their full height with the recipe palette. */
+#home-recipes>.recipe-card{display:flex;flex-direction:column;background:var(--recipe-color,var(--pink))}
+#home-recipes>.recipe-card>.recipe-image{flex-shrink:0}
+#home-recipes>.recipe-card>.card-body{flex:1}
+
+/* Profile photos and initials share a circular black frame on every surface. */
+.avatar,.profile-avatar,.creator-attribution img,.creator-avatar-fallback,.comment-avatar,#detail-view .comment-avatar{border-radius:50%!important;border:1px solid #000;box-sizing:border-box;overflow:hidden;flex-shrink:0}
+.avatar>img,.comment-avatar>img{border-radius:50%!important;display:block;object-fit:cover}
+
+/* Compact in-page option menus, shared by filters, forms and profile controls. */
+.noms-select-menu{position:fixed;inset:auto;margin:0;padding:4px;border:1px solid #000;background:#fff;color:#000;box-shadow:0 6px 18px #0002;overflow:auto;overscroll-behavior:contain;box-sizing:border-box;font:400 13px/1.4 Outfit,sans-serif;max-width:calc(100vw - 24px)}
+.noms-select-menu [role="option"]{padding:6px 30px 6px 10px;min-height:30px;position:relative;cursor:pointer;overflow-wrap:anywhere}
+.noms-select-menu [role="option"].is-active{background:var(--orchid,#cab7fb)}
+.noms-select-menu [aria-selected="true"]{font-weight:600}
+.noms-select-menu [aria-selected="true"]::after{content:'✓';position:absolute;right:10px;top:6px}
+.noms-select-group{padding:8px 10px 4px;font-size:11px;font-weight:700;color:var(--muted)}
+@media(pointer:coarse){.noms-select-menu [role="option"]{min-height:40px;padding-top:10px;padding-bottom:10px}.noms-select-menu [aria-selected="true"]::after{top:10px}}
+
+.noms-select-menu{z-index:1000}
+
+/* Personal ratings and optional community contribution share the recipe palette. */
+.card-ratings{display:flex;flex-wrap:wrap;gap:5px 14px;margin-top:10px;font-size:12px;line-height:1.5}
+.card-ratings .personal-rating{color:var(--muted,#686c61)}
+.community-rating{display:inline-flex;flex-direction:column;font-size:13px;line-height:1.5}
+.community-rating>b{font-size:inherit}
+.community-rating>span{font-size:12px}
+.rating-community-choice{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:14px;cursor:pointer}
+.rating-community-choice input{width:17px;height:17px;margin:0;accent-color:var(--ink,#293d31)}
+
+/* Personal Cookbooks */
+.cookbook-card{padding:0;text-align:left;background:var(--paper,#fffdf8);border:1px solid #deddd3;border-radius:18px;overflow:hidden;color:inherit;cursor:pointer;transition:transform .2s}
+.cookbook-card:hover{transform:translateY(-3px)}
+.cookbook-cover{aspect-ratio:16/10;background:#e5e9df;overflow:hidden;display:grid;place-items:center;position:relative}
+.cookbook-cover img{width:100%;height:100%;object-fit:cover}
+.cookbook-placeholder{font-size:64px}.cookbook-copy{padding:20px}.cookbook-copy h2{font-size:24px;margin:0 0 8px}.cookbook-copy p{margin:0;color:#666}
+.cookbook-heading{display:grid;grid-template-columns:minmax(180px,300px) 1fr;gap:32px;align-items:center;margin:20px 0 36px}.cookbook-heading .cookbook-cover{border-radius:18px}.cookbook-description{white-space:pre-wrap;overflow-wrap:anywhere}.cookbook-heading h1,.cookbook-copy h2{overflow-wrap:anywhere}
+.cookbook-entry{min-width:0;display:inline-block;vertical-align:top;width:100%;break-inside:avoid;page-break-inside:avoid}.cookbook-entry>.text-btn{margin:10px 0 20px}.cookbook-entry .recipe-card{height:auto}
+.cookbook-add{font-size:12px;padding:8px 10px;white-space:nowrap}.recipe-image>.cookbook-add{position:absolute;right:12px;top:12px;z-index:2;background:#fffdf8}
+.cookbook-dialog{width:min(520px,calc(100vw - 32px));max-height:85dvh;overflow:auto;padding:28px;border:1px solid #deddd3;border-radius:20px;background:#fffdf8;color:#253c31;box-shadow:0 24px 90px #0003}.cookbook-dialog::backdrop{background:#14241c88}.cookbook-dialog form{display:grid;gap:18px}.cookbook-dialog label{display:grid;gap:8px}.cookbook-dialog input:not([type=checkbox]),.cookbook-dialog textarea,.cookbook-dialog select{box-sizing:border-box;width:100%;padding:12px;border:1px solid #cfcec5;border-radius:9px;background:white;font:inherit}.cookbook-dialog textarea{min-height:100px;resize:vertical}.cookbook-choices{display:grid;gap:8px;max-height:35dvh;overflow:auto}.cookbook-choices label{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid #deddd3;border-radius:10px}.cookbook-choices input{accent-color:#254735;width:20px;height:20px}.cookbook-choices small{display:block;color:#666;margin-top:4px}.cookbook-dialog [role=alert]{color:#a23c30;margin:0}.cookbook-dialog [role=alert]:empty{display:none}
+@media(max-width:600px){.cookbook-heading{grid-template-columns:1fr;gap:20px}.cookbook-heading .cookbook-cover{max-height:220px}.cookbook-dialog{padding:20px}.cookbook-heading .detail-actions{flex-wrap:wrap}}
+
+#recipes-view .recipe-grid>.cookbook-card{display:inline-block;width:100%;vertical-align:top;break-inside:avoid;page-break-inside:avoid;margin:0 0 20px}
+#recipes-view .recipe-grid.cookbook-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-count:auto;gap:20px;align-items:start}
+@media(max-width:900px){#recipes-view .recipe-grid.cookbook-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){#recipes-view .recipe-grid.cookbook-grid{grid-template-columns:minmax(0,1fr)}}
+
+.cookbook-dialog.cookbook-recipe-picker{width:min(940px,calc(100vw - 32px));color:inherit}
+.cookbook-recipe-picker .gallery-controls{display:flex;gap:12px;flex-wrap:wrap}.cookbook-recipe-picker .search{flex:1;min-width:180px}.cookbook-recipe-picker .search input{min-width:0}
+.cookbook-recipe-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;max-height:46dvh;overflow:auto;padding:3px}
+.cookbook-recipe-choice{width:100%;min-width:0;text-align:left;padding:0 0 12px;overflow:hidden;border:1px solid #ccc;background:#fffdf8;color:inherit;display:flex;flex-direction:column;gap:8px;cursor:pointer}
+.cookbook-recipe-choice img,.cookbook-recipe-choice .cover-fallback{width:100%;height:130px;object-fit:cover}.cookbook-recipe-choice strong,.cookbook-recipe-choice small{padding:0 12px;overflow-wrap:anywhere}.cookbook-recipe-choice[aria-pressed=true]{outline:3px solid #860e35;outline-offset:-3px}.cookbook-recipe-choice:disabled{opacity:.6;cursor:default}.cookbook-recipe-choice small{margin-top:auto}
+@media(max-width:600px){.cookbook-recipe-results{grid-template-columns:repeat(2,minmax(0,1fr))}.cookbook-recipe-choice img,.cookbook-recipe-choice .cover-fallback{height:105px}.cookbook-recipe-choice .cover-fallback span{font-size:12px}}
+
+.cookbook-dialog{box-sizing:border-box}.cookbook-recipe-picker .gallery-controls{margin-bottom:0}.cookbook-recipe-picker .search input{border:0;background:transparent;padding:0}.cookbook-recipe-choice .cover-fallback{min-height:0;box-sizing:border-box;padding:12px;gap:8px}.cookbook-recipe-choice .cover-fallback>.app-icon{width:32px;height:32px}.cookbook-recipe-choice .cover-fallback>span{font-size:13px}
+
+.cookbook-author{color:inherit;text-decoration:underline;text-underline-offset:3px}.cookbook-card{display:block}.cookbook-card:focus-visible{outline:3px solid var(--burgundy,#860e35);outline-offset:3px}
+.profile-collection-tabs{display:flex;gap:24px;border-bottom:1px solid #ddd;margin-bottom:24px}.profile-collection-tabs button{background:transparent;border:0;border-bottom:3px solid transparent;padding:16px 0;color:inherit;font:inherit;cursor:pointer}.profile-collection-tabs [aria-selected=true]{border-bottom-color:var(--burgundy,#860e35);color:var(--burgundy,#860e35)}.profile-collections .recipe-grid{margin-top:20px}.profile-cookbook h3 a{color:inherit}.profile-cookbook p{font-size:14px;overflow-wrap:anywhere}
+@media(max-width:540px){.profile-collection-tabs{gap:18px}.profile-collection-tabs button{font-size:13px}}

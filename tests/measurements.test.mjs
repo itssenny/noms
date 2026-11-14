@@ -40,3 +40,13 @@ test('account preference survives navigation and handles unavailable storage',()
  const map=new Map(),storage={getItem:key=>map.get(key),setItem:(key,value)=>map.set(key,value)};
  assert.equal(measurementPreference(storage,'a'),'metric');saveMeasurementPreference(storage,'a','us');assert.equal(measurementPreference(storage,'a'),'us');assert.equal(measurementPreference(storage,'b'),'metric');assert.equal(measurementPreference(null,'a'),'metric');
 });
+
+
+test('teaspoons and tablespoons stay readable in both systems, including aliases and scaled servings',()=>{
+ for(const system of ['metric','us'])for(const [source,unit] of [['tsp','tsp'],['teaspoons','tsp'],['tbsp','tbsp'],['tablespoon','tbsp']]){
+  const original={quantity:.5,unit:source};
+  assert.deepEqual(displayMeasurement(original.quantity,original.unit,system,ingredient(198),3),{quantity:1.5,unit});
+  assert.equal(formatMeasurement(displayMeasurement(original.quantity,original.unit,system)),`½ ${unit}`);
+  assert.deepEqual(original,{quantity:.5,unit:source});
+ }
+});

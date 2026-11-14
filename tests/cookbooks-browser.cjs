@@ -1,0 +1,78 @@
+// Local routed fixtures only: no production Supabase requests.
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path'),vm=require('node:vm');
+(async()=>{
+ const fixture=await fs.readFile(path.join(__dirname,'recipe-catalog-browser.cjs'),'utf8');
+ let mock=vm.runInNewContext(fixture.slice(fixture.indexOf('const mock='),fixture.indexOf('\n(async()=>'))+';mock');
+ mock=mock.replace("const m=window.__mock;let data=[];",`const m=window.__mock;let data=[];
+ m.books||=[];m.members||=[];
+ if(table==='cookbooks'){
+ if(op==='insert'){data={...values,id:crypto.randomUUID(),visibility:values.visibility||'private',cover_recipe_id:null};m.books.push(data)}
+ else if(op==='update'){data=m.books.find(b=>b.id===filters.id);Object.assign(data,values)}
+ else if(op==='delete'){m.books=m.books.filter(b=>b.id!==filters.id);m.members=m.members.filter(x=>x.cookbook_id!==filters.id)}
+ }
+ if(table==='cookbook_recipes'){
+ if(op==='insert'&&!m.members.some(x=>x.cookbook_id===values.cookbook_id&&x.recipe_id===values.recipe_id))m.members.push(values);
+ if(op==='delete')m.members=m.members.filter(x=>!(x.cookbook_id===filters.cookbook_id&&x.recipe_id===filters.recipe_id));
+ }
+ `);
+ mock=mock.replace("const m=window.__mock;if(name==='discover_recipes')",`const m=window.__mock;
+ m.books||=[];m.members||=[];
+ const recipes=[m.own,starter,...m.created];
+ if(name==='get_visible_profile')return {data:args.p_lookup==='bob'||args.p_lookup===user.id?m.profile:{id:'00000000-0000-0000-0000-000000000099',username:'alice',display_name:'Alice',is_private:false}};
+ if(name==='get_profile_recipes')return {data:[starter]};
+ if(name==='get_profile_cookbooks'){if(args.p_profile_id===user.id){const all=await this.rpc('get_cookbooks');return all}return {data:m.publicBooks||[]}};
+ if(name==='get_cookbook'){const own=m.books.find(b=>b.id===args.p_id);if(own){const all=await this.rpc('get_cookbooks');return {data:all.data.find(b=>b.id===args.p_id)}}return {data:(m.publicBooks||[]).find(b=>b.id===args.p_id)||null}};
+ if(name==='get_recipe_ratings')return {data:args.p_ids.map(id=>({id,personal_rating:null,community_count:0}))};
+ if(name==='get_cookbooks')return {data:m.books.map(b=>({...b,author:{id:user.id,username:'bob',display_name:'Bob'},recipe_ids:m.members.filter(x=>x.cookbook_id===b.id).map(x=>x.recipe_id),cover:recipes.find(r=>r.id===b.cover_recipe_id&&m.members.some(x=>x.cookbook_id===b.id&&x.recipe_id===r.id))||recipes.find(r=>m.members.some(x=>x.cookbook_id===b.id&&x.recipe_id===r.id))||null}))};
+ if(name==='get_cookbook_recipes'&&(m.publicBooks||[]).some(b=>b.id===args.p_id))return {data:[{recipe_id:starter.id,recipe:starter}]};
+ if(name==='get_cookbook_recipes')return {data:m.members.filter(x=>x.cookbook_id===args.p_id).map(x=>({recipe_id:x.recipe_id,recipe:recipes.find(r=>r.id===x.recipe_id)||null}))};
+ if(name==='discover_recipes')`);
+ const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+ try{
+ const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'}),errors=[];page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));
+ await page.route('https://cookbooks.test/**',async route=>{const pathname=new URL(route.request().url()).pathname,file=path.join(__dirname,'..',pathname==='/'?'index.html':pathname);await route.fulfill({body:await fs.readFile(file),contentType:pathname.endsWith('.css')?'text/css':pathname==='/'?'text/html':'text/javascript'})});
+ await page.route('**/supabase-client.js',route=>route.fulfill({contentType:'text/javascript',body:mock}));
+ await page.goto('https://cookbooks.test/');await page.locator('#app-shell').waitFor({state:'visible'});
+ const dialog=page.locator('#cookbook-dialog');
+ const create=async(name,inline=false)=>{await dialog.locator('[name="name"]').fill(name);await dialog.getByRole('button',{name:'Save Cookbook',exact:true}).click();if(inline)await dialog.getByRole('heading',{name:'Add to Cookbook'}).waitFor();else await dialog.waitFor({state:'detached'})};
+ await page.locator('[data-view="recipes"]').first().click();await page.locator('[data-recipe-page="cookbooks"]').click();await page.getByRole('heading',{name:'A collection for every craving.'}).waitFor();
+ await page.locator('[data-cookbook-new]').first().click();await create('Weeknights');await page.locator('[data-cookbook-new]').click();await create('Favourites');
+ assert.equal(await page.locator('.cookbook-card').count(),2);
+ await page.locator('[data-recipe-page="created"]').click();await page.locator('#all-recipes [data-cookbook-add]').click();
+ await dialog.getByRole('checkbox').first().check();await dialog.locator('[data-cookbook-create-inline]').click();await create('Soups',true);
+ await dialog.waitFor();assert.equal(await dialog.getByRole('checkbox',{name:/Soups/}).isChecked(),true);assert.equal(await dialog.getByRole('checkbox',{name:/Weeknights/}).isChecked(),true);
+ await dialog.getByRole('checkbox',{name:/Favourites/}).check();await dialog.getByRole('button',{name:'Save selection'}).click();await dialog.waitFor({state:'detached'});
+ assert.equal(await page.evaluate(()=>window.__mock.members.length),3);
+ await page.locator('#all-recipes [data-cookbook-add]').click();assert.equal(await dialog.locator('input:checked').count(),3);await dialog.getByRole('button',{name:'Save selection'}).click();await dialog.waitFor({state:'detached'});assert.equal(await page.evaluate(()=>window.__mock.members.length),3);
+ await page.locator('[data-recipe-page="cookbooks"]').click();await page.locator('.cookbook-card').filter({hasText:'Weeknights'}).click();await page.locator('.cookbook-heading h1').getByText('Weeknights',{exact:true}).waitFor();
+ await page.locator('[data-cookbook-edit]').click();await dialog.locator('[name="visibility"]').selectOption('public');await dialog.locator('[name="name"]').fill('Easy evenings');await dialog.locator('[name="description"]').fill('Recipes for busy days.');await dialog.locator('[name="cover"]').selectOption({label:'My rice bowl'});await dialog.getByRole('button',{name:'Save Cookbook'}).click();await dialog.waitFor({state:'detached'});await page.locator('.cookbook-heading h1').getByText('Easy evenings').waitFor();assert.equal(await page.locator('.cookbook-entry [data-cookbook-add]').count(),0);await page.locator('.cookbook-heading').getByText('PUBLIC COOKBOOK',{exact:true}).waitFor();assert.equal(await page.locator('.cookbook-heading .cookbook-author').textContent(),'Bob');await page.locator('[data-cookbook-edit]').click();await dialog.locator('[name="visibility"]').selectOption('private');await dialog.getByRole('button',{name:'Save Cookbook'}).click();await dialog.waitFor({state:'detached'});
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/private/tmp/noms-cookbooks-mobile.png',fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.locator('[data-cookbook-remove]').click();await page.getByRole('heading',{name:'Make room for your favourites.'}).waitFor();assert.equal(await page.evaluate(()=>window.__mock.own.name),'My rice bowl');assert.equal(await page.evaluate(()=>window.__mock.members.length),2);
+ await page.locator('[data-cookbook-delete]').click();await dialog.getByRole('button',{name:'Delete Cookbook',exact:true}).click();await dialog.waitFor({state:'detached'});await page.locator('.cookbook-card').first().waitFor();assert.equal(await page.locator('.cookbook-card').count(),2);
+ // A public recipe can be saved and collected without being duplicated as Created.
+ await page.locator('[data-view="discover"]').first().click();await page.locator('[data-discover-results] h3').first().click();await page.locator('#detail-view [data-cookbook-add]').click();await dialog.getByRole('checkbox',{name:/Favourites/}).check();await dialog.getByRole('button',{name:'Save selection'}).click();await dialog.waitFor({state:'detached'});assert.equal(await page.evaluate(()=>window.__mock.saved),true);
+ await page.locator('[data-view="recipes"]').first().click();await page.locator('[data-recipe-page="saved"]').click();await page.locator('#all-recipes h3').getByText('Miso chickpea crunch bowls').waitFor();
+ await page.locator('[data-recipe-page="cookbooks"]').click();await page.locator('.cookbook-card').filter({hasText:'Favourites'}).click();await page.locator('.cookbook-entry').nth(1).waitFor();
+ const hash=await page.evaluate(()=>location.hash);await page.reload();await page.locator('.cookbook-heading h1').getByText('Favourites').waitFor();assert.equal(await page.evaluate(()=>location.hash),hash);
+ await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'/private/tmp/noms-cookbooks-desktop.png',fullPage:true});
+  await page.locator('[data-recipe-page="cookbooks"]').click();await page.locator('[data-cookbook-new]').click();await create('Direct additions');
+ await page.locator('.cookbook-card').filter({hasText:'Direct additions'}).click();await page.locator('[data-cookbook-browse]').first().click();await dialog.getByRole('heading',{name:'Add recipes',exact:true}).waitFor();
+ const search=dialog.locator('[data-cookbook-search]'),source=dialog.locator('[data-cookbook-source]');
+ await search.fill('rice');await dialog.locator('[data-cookbook-choose]').filter({hasText:'My rice bowl'}).waitFor();await dialog.locator('[data-cookbook-choose]').filter({hasText:'My rice bowl'}).click();
+ await search.fill('nothing matches');await dialog.locator('[data-cookbook-results-status]').getByText(/No recipes found/).waitFor();
+ await search.fill('miso');await source.selectOption('discover');await dialog.locator('[data-cookbook-choose]').filter({hasText:'Miso chickpea crunch bowls'}).waitFor();await dialog.locator('[data-cookbook-choose]').filter({hasText:'Miso chickpea crunch bowls'}).click();
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/private/tmp/noms-cookbook-picker-mobile.png',fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await dialog.getByRole('button',{name:'Add 2 recipes',exact:true}).click();await dialog.waitFor({state:'detached'});await page.locator('.cookbook-entry').nth(1).waitFor();assert.equal(await page.locator('.cookbook-heading h1').textContent(),'Direct additions');
+ await page.locator('[data-cookbook-browse]').first().click();await dialog.locator('[data-cookbook-choose]').first().waitFor();assert.equal(await dialog.locator('[data-cookbook-choose]:disabled').count(),2);await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+ await page.locator('.cookbook-entry h3').filter({hasText:'My rice bowl'}).click();await page.locator('#detail-view [data-start]').waitFor();assert.equal(await page.locator('#detail-view .detail-actions button').first().getAttribute('data-start'),await page.locator('#detail-view [data-start]').getAttribute('data-start'));
+ const actions=await page.locator('#detail-view .detail-actions>button').evaluateAll(nodes=>nodes.slice(0,4).map(n=>n.hasAttribute('data-start')?'start':n.hasAttribute('data-plan')?'plan':n.hasAttribute('data-recipe-shopping')?'shopping':n.hasAttribute('data-cookbook-add')?'cookbook':'other'));assert.deepEqual(actions,['start','plan','shopping','cookbook']);
+ await page.locator('#profile-button').click();await page.locator('[data-profile-tab="created"]').waitFor();assert.deepEqual(await page.locator('[role="tab"][data-profile-tab]').allTextContents(),['Created recipes','What I made','Cookbooks']);
+ await page.locator('[data-profile-tab="made"]').click();await page.locator('#profile-collection-panel').getByText(/No cooking history yet/).waitFor();
+ await page.locator('[data-profile-tab="cookbooks"]').click();await page.locator('.profile-cookbook').first().waitFor();await page.screenshot({path:'/private/tmp/noms-profile-cookbooks-mobile.png',fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.locator('.profile-cookbook').filter({hasText:'Direct additions'}).locator('[data-cookbook-open]').click();await page.locator('.cookbook-heading h1').getByText('Direct additions').waitFor();
+ await page.evaluate(()=>{window.__mock.publicBooks=[{id:'30000000-0000-0000-0000-000000000099',user_id:'00000000-0000-0000-0000-000000000099',name:'Alice favourites',description:'A public collection',visibility:'public',recipe_ids:['20000000-0000-0000-0000-000000000001'],author:{id:'00000000-0000-0000-0000-000000000099',username:'alice',display_name:'Alice'}}];location.hash='/profile/alice'});
+ await page.locator('#profile-view h1').getByText('Alice',{exact:true}).waitFor();await page.locator('[data-profile-tab="cookbooks"]').click();await page.locator('.profile-cookbook').filter({hasText:'Alice favourites'}).locator('[data-cookbook-open]').click();await page.locator('.cookbook-heading h1').getByText('Alice favourites').waitFor();assert.equal(await page.locator('[data-cookbook-edit],[data-cookbook-delete],[data-cookbook-browse]').count(),0);assert.equal(await page.locator('.cookbook-entry [data-cookbook-add],[data-cookbook-remove]').count(),0);
+ await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'/private/tmp/noms-public-cookbook-desktop.png',fullPage:true});await page.locator('.cookbook-heading .cookbook-author').click();await page.locator('#profile-view h1').getByText('Alice',{exact:true}).waitFor();
+assert.deepEqual(errors,[]);console.log('Passed: empty state, create, inline creation, multiselect, duplicate prevention, rename, description, cover, remove, delete, Created/Saved/detail integration, direct route reload, mobile/desktop layout, visibility controls, author links, profile tabs, read-only public views and action order.');
+ }finally{await browser.close()}
+})().catch(error=>{console.error(error);process.exitCode=1});

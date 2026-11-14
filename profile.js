@@ -5,6 +5,26 @@ const profileButton = document.querySelector('#profile-button');
 const cuisines = ['Italian', 'Japanese', 'Chinese', 'Mexican', 'Korean', 'Mediterranean', 'Indian', 'Thai', 'French', 'Middle Eastern'];
 let session = null;
 let visitorRequest=0;
+let profileCollectionContext=null,profileCollectionRequest=0;
+function profileCollectionTabs(rows,own,profileId){
+ profileCollectionContext={rows,own,profileId};profileCollectionRequest++;
+ return `<section class="panel profile-collections"><nav class="profile-collection-tabs" role="tablist" aria-label="Profile collections">${[['created','Created recipes'],['made','What I made'],['cookbooks','Cookbooks']].map(([id,label])=>`<button type="button" role="tab" id="profile-tab-${id}" aria-controls="profile-collection-panel" aria-selected="${id==='created'}" tabindex="${id==='created'?0:-1}" data-profile-tab="${id}">${label}</button>`).join('')}</nav><div id="profile-collection-panel" role="tabpanel" aria-labelledby="profile-tab-created">${profileRecipeCollection(rows,own)}</div></section>`;
+}
+function profileRecipeCollection(rows,own,made=false){return `<div class="recipe-grid">${rows.map(recipe=>`<article class="panel">${own?`<small>${recipe.visibility==='public'?'Public':'Private'}${made?` · ${escapeHtml(new Date(recipe.lastCookedAt).toLocaleDateString())}`:''}</small>`:''}<h3>${escapeHtml(recipe.name)}</h3><button class="text-btn" data-visit-recipe="${escapeHtml(recipe.id)}">Open recipe</button>${own&&!made?`<button class="text-btn" data-edit-recipe="${escapeHtml(recipe.id)}">Edit</button>`:''}</article>`).join('')||`<p>${made?'No cooking history yet. Finish cooking a recipe to see it here.':'No created recipes yet.'}</p>`}</div>`}
+async function showProfileCollection(tab){
+ const ctx=profileCollectionContext,panel=profileView.querySelector('#profile-collection-panel'),request=++profileCollectionRequest,version=profileVersion;if(!ctx||!panel)return;
+ for(const button of profileView.querySelectorAll('[data-profile-tab]')){const active=button.dataset.profileTab===tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1}
+ panel.setAttribute('aria-labelledby','profile-tab-'+tab);
+ if(tab==='created'){panel.innerHTML=profileRecipeCollection(ctx.rows,ctx.own);return}
+ if(tab==='made'){panel.innerHTML=ctx.own?profileRecipeCollection(ctx.rows.filter(r=>r.lastCookedAt).sort((a,b)=>Date.parse(b.lastCookedAt)-Date.parse(a.lastCookedAt)),true,true):'<p>Cooking history is private.</p>';return}
+ panel.innerHTML='<p role="status">Loading Cookbooks…</p>';
+ try{const {data,error}=await supabase.rpc('get_profile_cookbooks',{p_profile_id:ctx.profileId});if(request!==profileCollectionRequest||version!==profileVersion||!panel.isConnected)return;if(error)throw error;
+ panel.innerHTML=`${ctx.own&&ctx.profileId===session?.user?.id?'<button class="text-btn" data-profile-cookbooks>Manage my Cookbooks →</button>':''}<div class="recipe-grid profile-cookbook-grid">${(data||[]).map(book=>{const author=book.author||{};return `<article class="panel profile-cookbook"><small>${book.visibility==='public'?'Public':'Private'}</small><h3><a href="#/cookbook/${encodeURIComponent(book.id)}" data-cookbook-open="${escapeHtml(book.id)}">${escapeHtml(book.name)}</a></h3><p>${book.recipe_ids.length} recipe${book.recipe_ids.length===1?'':'s'} · <a href="#/profile/${encodeURIComponent(author.username||author.id||book.user_id)}" data-visit-profile="${escapeHtml(author.username||author.id||book.user_id)}">${escapeHtml(author.display_name||author.username||'Cook')}</a></p></article>`}).join('')||'<p>No Cookbooks yet.</p>'}</div>`;
+ }catch(error){if(request===profileCollectionRequest&&version===profileVersion&&panel.isConnected)panel.innerHTML=`<p role="alert">Could not load Cookbooks. ${escapeHtml(error.message)}</p><button class="text-btn" data-profile-tab="cookbooks">Try again</button>`}
+}
+document.addEventListener('click',event=>{const tab=event.target.closest('[data-profile-tab]');if(tab)showProfileCollection(tab.dataset.profileTab);if(event.target.closest('[data-profile-cookbooks]'))window.dispatchEvent(new CustomEvent('noms-open-cookbooks'))});
+document.addEventListener('keydown',event=>{const tab=event.target.closest('[role="tab"][data-profile-tab]');if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const tabs=[...tab.parentElement.querySelectorAll('[role="tab"]')],index=tabs.indexOf(tab),next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowLeft'?-1:1)+tabs.length)%tabs.length;tabs[next].focus();tabs[next].click()});
+
 let profile = null;
 let profileVersion=0,profileRequest=0,profileLoad=null,sessionSeen=false;
 
@@ -88,7 +108,7 @@ function renderProfile() {
           <span>Member since ${escapeHtml(memberSince)}</span>
         </div>
       </section>
-      <section class="panel"><div class="section-heading"><h2>Created recipes</h2><button class="text-btn" data-profile-created>All created recipes →</button></div><div class="recipe-grid">${(window.miseOwnedRecipes||[]).map(recipe=>`<article class="panel"><small>${recipe.visibility==='public'?'Public':'Private'}</small><h3>${escapeHtml(recipe.name)}</h3><button class="text-btn" data-visit-recipe="${escapeHtml(recipe.id)}">Open recipe</button><button class="text-btn" data-edit-recipe="${escapeHtml(recipe.id)}">Edit</button></article>`).join('')||'<p>No created recipes yet.</p>'}</div></section>
+      ${profileCollectionTabs(window.miseOwnedRecipes||[],true,profile.id)}
     </div>`;
 }
 
@@ -225,7 +245,7 @@ window.addEventListener('mise-profile-visit',async event=>{
  ${p.avatar_url?`<img class="profile-avatar" src="${escapeHtml(p.avatar_url)}" alt="Profile avatar">`:''}
  <div class="profile-copy"><h1>${escapeHtml(p.is_private?(p.username?'@'+p.username:'Cook'):(p.display_name||p.username||'Cook'))}</h1><p>${p.username?'@'+escapeHtml(p.username):''}</p>${p.profile_type==='official'||p.profile_type==='brand'?`<p class="official-profile-label">${p.is_verified?'Verified official':'Official'} Noms profile</p>`:''}
  ${p.is_private?'<p>This profile is private.</p>':`<p>${escapeHtml(p.bio)}</p><div class="profile-tags">${[p.diet_preference,p.cooking_level,...(p.favorite_cuisines||[])].filter(Boolean).map(value=>`<span>${escapeHtml(value)}</span>`).join('')}</div>`}
- </div></div></section>${p.is_private?'':`<section class="panel"><h2>Public recipes</h2><div class="recipe-grid">${rows.map(recipe=>`<article class="panel"><h3>${escapeHtml(recipe.name)}</h3><button class="secondary-btn" data-visit-recipe="${escapeHtml(recipe.id)}">View recipe</button></article>`).join('')||'<p>No public recipes yet.</p>'}</div></section>`}</div>`;
+ </div></div></section>${p.is_private?'':`${profileCollectionTabs(rows,false,p.id)}`}</div>`;
  }catch(error){if(request===visitorRequest&&version===profileVersion)profileView.innerHTML=`<div class="panel"><h1>Profile unavailable</h1><p>${escapeHtml(error.message)}</p></div>`}
 });
 document.addEventListener('click',event=>{

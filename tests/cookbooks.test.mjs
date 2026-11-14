@@ -1,0 +1,57 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile,readdir} from 'node:fs/promises';
+const {PGlite}=await import(process.env.PGLITE_MODULE);
+const a='00000000-0000-0000-0000-000000000001',b='00000000-0000-0000-0000-000000000002';
+const sql=async name=>readFile(new URL('../db/supabase/'+name,import.meta.url),'utf8');
+test('Cookbooks enforce account ownership, live recipe access, uniqueness and safe deletion through the complete schema',async()=>{
+ const db=new PGlite();try{
+ const fixture=await readFile(new URL('./recipe-catalog-migration.test.mjs',import.meta.url),'utf8');
+ const start=fixture.indexOf('await db.exec(`create role'),end=fixture.indexOf('`);',start)+3;
+ const setup=fixture.slice(start,end).replaceAll('${a}',a).replaceAll('${b}',b);
+ await db.exec(setup.slice(setup.indexOf('`')+1,setup.lastIndexOf('`')));
+ for(const name of (await readdir(new URL('../db/supabase/',import.meta.url))).filter(n=>n.endsWith('.sql')).sort())await db.exec((await sql(name)).replace('create extension if not exists pgcrypto;',''));
+ const as=async user=>db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${user}';`);
+ const all=async()=>(await db.query('select get_cookbooks() value')).rows[0].value;
+ const entries=async id=>(await db.query('select get_cookbook_recipes($1) value',[id])).rows[0].value;
+ const add=async(c,r)=>db.query('insert into cookbook_recipes(cookbook_id,recipe_id) values($1,$2)',[c,r]);
+ await as(a);
+ const own=(await db.query("insert into recipes(user_id,name,image_url) values($1,'Own soup','cover.jpg') returning id",[a])).rows[0].id;
+ const first=(await db.query("insert into cookbooks(name,description) values('Weeknights','Quick meals') returning id")).rows[0].id;
+ const second=(await db.query("insert into cookbooks(name) values('Favourites') returning id")).rows[0].id;
+ assert.equal((await all()).length,2);assert.equal((await entries(first)).length,0);
+ await assert.rejects(db.query("insert into cookbooks(name) values('   ')"));
+ await assert.rejects(db.query("insert into cookbooks(name,visibility) values('Invalid','friends')"),/check constraint/);
+ await assert.rejects(db.query("insert into cookbooks(name,user_id) values('Spoof',$1)",[b]),/row-level security/);
+ await add(first,own);await add(second,own);await assert.rejects(add(first,own),/duplicate key/);
+ await db.query('update cookbooks set cover_recipe_id=$1 where id=$2',[own,first]);
+ await db.query("update recipes set name='Updated soup' where id=$1",[own]);
+ assert.equal((await entries(first))[0].recipe.name,'Updated soup');assert.equal((await entries(second))[0].recipe.name,'Updated soup');
+ await db.query("update cookbooks set name='Renamed',description='Updated' where id=$1",[first]);assert.equal((await all()).find(c=>c.id===first).name,'Renamed');
+ await assert.rejects(db.query("update cookbooks set visibility='friends' where id=$1",[first]),/check constraint/);
+ await assert.rejects(db.query('update cookbooks set user_id=$1 where id=$2',[b,first]),/row-level security/);
+ await as(b);assert.deepEqual(await all(),[]);assert.deepEqual(await entries(first),[]);
+ assert.equal((await db.query('select * from cookbook_recipes')).rows.length,0);
+ assert.equal((await db.query("update cookbooks set name='Intruder' where id=$1 returning id",[first])).rows.length,0);
+ assert.equal((await db.query('delete from cookbooks where id=$1 returning id',[first])).rows.length,0);
+ await assert.rejects(add(first,own),/row-level security/);
+ const other=(await db.query("insert into recipes(user_id,name,visibility) values($1,'Other public soup','public') returning id",[b])).rows[0].id;
+ // Public recipe and profile together permit saving; neither grants recipe ownership.
+ await db.exec(`reset role;update profiles set is_private=false where id='${b}';`);
+ await as(a);await assert.rejects(add(first,other),/row-level security/);
+ await db.query('insert into saved_recipes(user_id,recipe_id) values($1,$2)',[a,other]);await add(first,other);
+ assert.equal((await entries(first)).find(r=>r.recipe_id===other).recipe.name,'Other public soup');
+ assert.equal((await db.query("update recipes set name='Stolen' where id=$1 returning id",[other])).rows.length,0);
+ await db.query('update cookbooks set cover_recipe_id=$1 where id=$2',[other,first]);
+ await as(b);await db.query("update recipes set visibility='private' where id=$1",[other]);
+ await as(a);assert.equal((await entries(first)).find(r=>r.recipe_id===other).recipe,null);assert.equal((await all()).find(c=>c.id===first).cover.id,own);
+ await assert.rejects(db.query('update cookbooks set cover_recipe_id=$1 where id=$2',[other,second]),/accessible recipe/);
+ await db.query('delete from cookbook_recipes where cookbook_id=$1 and recipe_id=$2',[first,other]);
+ await db.query('update cookbooks set cover_recipe_id=null where id=$1',[first]);
+ await db.query('delete from cookbook_recipes where cookbook_id=$1 and recipe_id=$2',[first,own]);assert.equal((await entries(first)).length,0);
+ assert.equal((await db.query('select * from recipes where id=$1',[own])).rows.length,1);
+ await db.query('delete from cookbooks where id=$1',[second]);assert.equal((await db.query('select * from recipes where id=$1',[own])).rows.length,1);
+ await add(first,own);await db.query('update cookbooks set cover_recipe_id=$1 where id=$2',[own,first]);await db.query('delete from recipes where id=$1',[own]);assert.deepEqual(await entries(first),[]);assert.equal((await all()).find(c=>c.id===first).cover_recipe_id,null);
+ await db.exec("reset role;set role anon;set request.jwt.claim.sub='';");await assert.rejects(all(),/permission denied/);await assert.rejects(entries(first),/permission denied/);await assert.rejects(db.query('select * from cookbooks'),/permission denied/);await assert.rejects(db.query('select * from cookbook_recipes'),/permission denied/);
+ }finally{await db.close()}
+});
