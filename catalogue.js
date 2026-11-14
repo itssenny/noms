@@ -1,9 +1,9 @@
 import {ingredientDefaults,saveIngredientDefaults} from './ingredient-defaults.js';
-import {categoryColour,defaultCategoryColour} from './list-models.mjs';
-import {categoryColourIssue,saveCategoryColours} from './category-colours.js';
+import {categoryColour,defaultCategoryColour} from './list-models.mjs?v=20261114-tracking';
+import {categoryColourIssue,saveCategoryColours} from './category-colours.js?v=20261114-tracking';
 import {substitutionRules,substitutionIssue,loadSubstitutions,addSubstitution,removeSubstitution} from './substitutions.js';
 import {supabase} from './supabase-client.js';
-import {units,ingredientCategories,ingredientPicker,selectedIngredient,escapeIngredientHtml as html,catalogueError,saveCatalogueIngredient} from './ingredients.js?v=20261114-defaults';
+import {units,ingredientCategories,ingredientPicker,selectedIngredient,escapeIngredientHtml as html,catalogueError,saveCatalogueIngredient} from './ingredients.js?v=20261114-tracking';
 let version=0,rows=[],owner=null;
 export function clearCatalogue(){version++;rows=[];owner=null;document.querySelector('#catalogue-editor')?.remove()}
 export async function catalogueView(){

@@ -15,6 +15,8 @@ export function quantityLabel(quantity,unit,scale=1){
 }
 export function needsPurchase(row){return row.isFlexible?row.status==='missing':row.missing>0}
 export function recipeChecks(recipe,inventory,servings=recipe.servings,rules=[],choices={}){
+ // Inactive records remain addressable, but never count as available stock.
+ inventory=Object.fromEntries(Object.entries(inventory).map(([name,item])=>[name,item.isActive===false?{...item,qty:0}:item]));
  const directIds=new Set(recipe.ingredients.map(row=>row[4]).filter(Boolean)),used=new Set();
  return recipe.ingredients.map(([originalName,qty,unit,note,originalId])=>{
   const flexible=qty===null||qty===undefined,key=originalId||originalName;
@@ -37,7 +39,7 @@ export function recipeChecks(recipe,inventory,servings=recipe.servings,rules=[],
  });
 }
 export function remainingInventory(check){
- if(check.invalidChoice||check.quantityUnknown||check.item?.qty===null||check.isFlexible||!check.item||!check.compatible)return null;
+ if(check.item?.isActive===false||check.invalidChoice||check.quantityUnknown||check.item?.qty===null||check.isFlexible||!check.item||!check.compatible)return null;
  const used=convertQuantity(check.need,check.unit,check.item.unit);
  if(used===null)return null;
  return {before:check.item.qty,after:Number(Math.max(0,check.item.qty-used).toFixed(8)),unit:check.item.unit};
@@ -45,7 +47,7 @@ export function remainingInventory(check){
 export function postCookQuantity(choice,value=''){
  if(choice==='unchanged')return undefined;
  if(choice==='unknown')return null;
- if(choice==='empty')return 0;
+ if(choice==='empty'||choice==='inactive')return 0;
  if(choice==='exact'){
   if(String(value).trim()==='')throw new Error('Enter an exact amount or choose another stock update.');
   const quantity=Number(value);
