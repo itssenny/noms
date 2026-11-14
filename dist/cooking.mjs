@@ -42,3 +42,15 @@ export function remainingInventory(check){
  if(used===null)return null;
  return {before:check.item.qty,after:Number(Math.max(0,check.item.qty-used).toFixed(8)),unit:check.item.unit};
 }
+export function postCookQuantity(choice,value=''){
+ if(choice==='unchanged')return undefined;
+ if(choice==='unknown')return null;
+ if(choice==='empty')return 0;
+ if(choice==='exact'){
+  if(String(value).trim()==='')throw new Error('Enter an exact amount or choose another stock update.');
+  const quantity=Number(value);
+  if(!Number.isFinite(quantity)||quantity<0)throw new Error('Enter zero or a positive amount.');
+  return quantity;
+ }
+ throw new Error('Choose how to update this ingredient.');
+}

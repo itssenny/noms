@@ -28,9 +28,10 @@ export function addSelectedIngredients(shopping,rows,indices,recipe,recipes=[rec
   }
   const needed=purchaseQuantity(row);if(!Number.isFinite(needed)||needed<=0)continue;
   const coverage=cartCoverage(row,next),extra=Number(Math.max(0,needed-coverage).toFixed(8));
-  const matched=next.filter(item=>cartMatches(row,item)&&convertQuantity(item.qty,item.unit,row.unit)!==null);
+    const matching=next.filter(item=>cartMatches(row,item));
+    const matched=matching.filter(item=>convertQuantity(item.qty,item.unit,row.unit)!==null);
   let target=matched[0];
-  if(extra>0){if(target)target.qty=Number((target.qty+convertQuantity(extra,row.unit,target.unit)).toFixed(8));else{target={id:globalThis.crypto.randomUUID(),name:row.name,ingredientId:row.ingredientId||null,qty:extra,unit:row.unit,checked:false,sources:[],sourceIds:[]};next.push(target);matched.push(target)}}
+    if(extra>0){if(target)target.qty=Number((target.qty+convertQuantity(extra,row.unit,target.unit)).toFixed(8));else{target=matching.find(item=>item.qty===null);if(target){target.qty=extra;target.unit=row.unit}else{target={id:globalThis.crypto.randomUUID(),name:row.name,ingredientId:row.ingredientId||null,qty:extra,unit:row.unit,checked:false,sources:[],sourceIds:[]};next.push(target)}matched.push(target)}}
   for(const item of matched){item.sourceIds=[...new Set([...item.sourceIds,recipe.id])];item.sources=[...new Set([...item.sources,recipe.name])]}
  }
  return next;

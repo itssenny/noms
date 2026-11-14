@@ -1,3 +1,5 @@
+import {categoryColour,defaultCategoryColour} from './list-models.mjs';
+import {categoryColourIssue,saveCategoryColours} from './category-colours.js';
 import {substitutionRules,substitutionIssue,loadSubstitutions,addSubstitution,removeSubstitution} from './substitutions.js';
 import {supabase} from './supabase-client.js';
 import {units,ingredientCategories,ingredientPicker,selectedIngredient,escapeIngredientHtml as html,catalogueError,saveCatalogueIngredient} from './ingredients.js';
@@ -15,14 +17,14 @@ export async function catalogueView(){
   if(current!==version)return;
   if(result.error)throw new Error(catalogueError(result.error));
   owner=auth.user.id;rows=result.data||[];await loadSubstitutions(owner);if(current!==version)return;
-  view.innerHTML=`<button class="back-btn" data-view="inventory">← Back to inventory</button><div class="page-head"><div><p class="eyebrow">YOUR INGREDIENTS</p><h1>Ingredient catalogue</h1><p>Browse shared ingredients and add or edit your own. Default units are suggestions; saved recipe and stock quantities stay as entered.</p></div><button class="primary-btn" data-catalogue-new>Add ingredient</button></div><section id="substitution-settings" class="panel substitution-settings"></section><section class="catalogue-browse"><h2>Find an ingredient</h2><label class="search"><span class="sr-only">Search ingredients</span><input id="catalogue-search" placeholder="Search ingredients"></label><p id="catalogue-count"></p><div id="catalogue-list" class="panel"></div></section>`;
-  renderRows('');renderSubstitutions();
+  view.innerHTML=`<button class="back-btn" data-view="inventory">← Back to inventory</button><div class="page-head"><div><p class="eyebrow">YOUR INGREDIENTS</p><h1>Ingredient catalogue</h1><p>Browse shared ingredients and add or edit your own. Default units are suggestions; saved recipe and stock quantities stay as entered.</p></div><button class="primary-btn" data-catalogue-new>Add ingredient</button></div><section id="category-colour-settings" class="panel category-colour-settings"></section><section id="substitution-settings" class="panel substitution-settings"></section><section class="catalogue-browse"><h2>Find an ingredient</h2><label class="search"><span class="sr-only">Search ingredients</span><input id="catalogue-search" placeholder="Search ingredients"></label><p id="catalogue-count"></p><div id="catalogue-list" class="panel"></div></section>`;
+  renderRows('');renderCategoryColours();renderSubstitutions();
  }catch(error){if(current===version)view.innerHTML=`<button class="back-btn" data-view="inventory">← Back to inventory</button><h1>Ingredient catalogue</h1><p role="alert">${html(error.message)}</p><button class="secondary-btn" data-catalogue-retry>Retry</button>`}
 }
 function renderRows(query){
  const filtered=rows.filter(row=>row.canonical_name.toLowerCase().includes(query.trim().toLowerCase()));
  document.querySelector('#catalogue-count').textContent=`${filtered.length} ingredients${rows.length===1000?' (first 1,000 shown)':''}`;
- document.querySelector('#catalogue-list').innerHTML=filtered.length?filtered.map(row=>`<div class="catalogue-row"><div><strong>${html(row.canonical_name)}</strong><small>${html(row.category)} · ${html(row.default_unit)} · ${row.created_by===owner?'Yours':'Shared'}</small></div>${row.created_by===owner?`<button class="secondary-btn" data-catalogue-edit="${html(row.id)}">Edit</button>`:''}</div>`).join(''):'<p>No ingredients found. Add one above. If you want the starter ingredients, apply database seed 005 in Supabase.</p>';
+ document.querySelector('#catalogue-list').innerHTML=filtered.length?filtered.map(row=>`<div class="catalogue-row"><div><strong><span class="category-dot" style="background:${categoryColour(row.category||'Other')}" aria-hidden="true"></span>${html(row.canonical_name)}</strong><small>${html(row.category)} · ${html(row.default_unit)} · ${row.created_by===owner?'Yours':'Shared'}</small></div>${row.created_by===owner?`<button class="secondary-btn" data-catalogue-edit="${html(row.id)}">Edit</button>`:''}</div>`).join(''):'<p>No ingredients found. Add one above. If you want the starter ingredients, apply database seed 005 in Supabase.</p>';
 }
 function editIngredient(id=null){
  const row=id?rows.find(row=>row.id===id&&row.created_by===owner):null;
@@ -72,4 +74,15 @@ document.addEventListener('click',async event=>{
  const current=version;button.disabled=true;
  try{await removeSubstitution(button.dataset.removeSubstitution);if(current!==version)return;renderSubstitutions();window.dispatchEvent(new CustomEvent('mise-substitutions-updated'))}
  catch(error){if(button.isConnected){button.disabled=false;const message=document.createElement('p');message.role='alert';message.textContent=error.message;button.after(message)}}
+});
+
+function renderCategoryColours(){
+ const panel=document.querySelector('#category-colour-settings');if(!panel)return;
+ const categories=[...new Set([...ingredientCategories,...rows.map(row=>row.category).filter(Boolean)])].sort();
+ panel.innerHTML=`<h2>Category colours</h2><p>Choose a colour for each category. Its dot follows your ingredients around noms.</p><form id="category-colours-form"><div class="category-colour-grid">${categories.map(category=>`<label><input type="color" data-category-colour="${html(category)}" value="${categoryColour(category)}" aria-label="${html(category)} colour"><span>${html(category)}</span></label>`).join('')}</div><div class="category-colour-actions"><button class="primary-btn">Save colours</button><button type="button" class="secondary-btn" data-default-category-colours>Use default colours</button></div><p role="status" data-colour-status>${html(categoryColourIssue())}</p></form>`;
+}
+document.addEventListener('click',event=>{if(event.target.closest('[data-default-category-colours]')){document.querySelectorAll('[data-category-colour]').forEach(input=>input.value=defaultCategoryColour(input.dataset.categoryColour));document.querySelector('[data-colour-status]').textContent='Default colours selected. Save to apply them.'}});
+document.addEventListener('submit',async event=>{
+ if(event.target.getAttribute('id')!=='category-colours-form')return;event.preventDefault();const form=event.target,button=form.querySelector('.primary-btn'),status=form.querySelector('[data-colour-status]'),current=version;if(button.disabled)return;button.disabled=true;status.textContent='Saving…';
+ try{const values=[...form.querySelectorAll('[data-category-colour]')].map(input=>({category:input.dataset.categoryColour,colour:input.value}));const saved=await saveCategoryColours(values);if(current!==version||!saved)return;renderRows(document.querySelector('#catalogue-search')?.value||'');status.textContent='Colours saved.'}catch(error){if(current===version&&form.isConnected)status.textContent=error.message}finally{button.disabled=false}
 });

@@ -8,7 +8,6 @@ const authSubmit = document.querySelector('#auth-submit');
 const authTitle = document.querySelector('#auth-title');
 const authCopy = document.querySelector('#auth-copy');
 const accountEmail = document.querySelector('#account-email');
-const profileButton = document.querySelector('#profile-button');
 let authMode = 'signin';
 
 function setMessage(message, isError = false) {
@@ -44,7 +43,6 @@ function showSession(session) {
     return;
   }
   accountEmail.textContent = user.email || '';
-  profileButton.textContent = (user.email || 'MM').slice(0, 2).toUpperCase();
   setMessage('');
 }
 

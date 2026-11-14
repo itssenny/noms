@@ -11,3 +11,7 @@ test('inventory status sorts and location/name filters stay combined',()=>{
  assert.deepEqual(filterInventory(inventory,{sort:'stock'}).map(([name])=>name),['Beans','Carrots','Apple']);assert.deepEqual(filterInventory(inventory,{sort:'low'}).map(([name])=>name),['Apple','Carrots','Beans']);assert.deepEqual(filterInventory(inventory,{sort:'za',location:'Pantry',search:'a'}).map(([name])=>name),['Beans','Apple']);
 });
 test('category colours are distinct and unknown category colours are stable',()=>{assert.equal(new Set(Object.values(categoryColours)).size,Object.keys(categoryColours).length);assert.equal(categoryColour('My category'),categoryColour('My category'));assert.notEqual(categoryColour('Dairy'),categoryColour('Vegetables'))});
+test('personal category colours override defaults, validate stored values, and can be cleared',async()=>{
+ const {categoryColour,setCategoryColourOverrides,defaultCategoryColour}=await import('../list-models.mjs');
+ try{setCategoryColourOverrides([{category:'Dairy',colour:'#ABC123'},{category:'Meat',colour:'red'}]);assert.equal(categoryColour('Dairy'),'#abc123');assert.equal(categoryColour('Meat'),defaultCategoryColour('Meat'));assert.match(defaultCategoryColour('Custom'),/^#[0-9a-f]{6}$/);setCategoryColourOverrides([]);assert.equal(categoryColour('Dairy'),defaultCategoryColour('Dairy'))}finally{setCategoryColourOverrides([])}
+});

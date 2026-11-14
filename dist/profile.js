@@ -5,13 +5,14 @@ const profileButton = document.querySelector('#profile-button');
 const cuisines = ['Italian', 'Japanese', 'Chinese', 'Mexican', 'Korean', 'Mediterranean', 'Indian', 'Thai', 'French', 'Middle Eastern'];
 let session = null;
 let profile = null;
+let profileVersion=0,profileRequest=0,profileLoad=null,sessionSeen=false;
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
 })[character]);
 
 function initials() {
-  const source = profile?.display_name || profile?.username || session?.user?.email || 'MM';
+  const source = profile?.display_name || profile?.username || session?.user?.email || 'noms';
   return source.split(/\s+|@/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase();
 }
 
@@ -30,20 +31,31 @@ function updateHeaderAvatar() {
   }
 }
 
-async function loadProfile() {
+async function loadProfile(render=true) {
   if (!session?.user) return;
-  profileView.innerHTML = '<div class="profile-loading">Setting the table…</div>';
-  const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+  const user=session.user,current=profileVersion,request=++profileRequest;
+  if(render)profileView.innerHTML = '<div class="profile-loading">Setting the table…</div>';
+  const { data, error } = await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle();
+  if(current!==profileVersion||request!==profileRequest)return;
   if (error) throw error;
-  if (data) profile = data;
-  else {
-    const fallbackName = session.user.user_metadata?.display_name || '';
-    const created = await supabase.from('profiles').insert({ id: session.user.id, display_name: fallbackName, created_at: session.user.created_at }).select().single();
+  let loaded=data;
+  if (!loaded) {
+    const fallbackName = user.user_metadata?.display_name || '';
+    const created = await supabase.from('profiles').insert({ id:user.id,display_name:fallbackName,created_at:user.created_at }).select().single();
+    if(current!==profileVersion||request!==profileRequest)return;
     if (created.error) throw created.error;
-    profile = created.data;
+    loaded=created.data;
   }
-  updateHeaderAvatar();
-  renderProfile();
+  profile=loaded;updateHeaderAvatar();
+  if(render&&profileView.classList.contains('active'))renderProfile();
+}
+function syncProfileSession(nextSession){
+ const changed=(session?.user?.id||null)!==(nextSession?.user?.id||null);
+ session=nextSession;
+ if(changed){profileVersion++;profileRequest++;profile=null;profileLoad=null;profileView.innerHTML='';updateHeaderAvatar()}
+ if(!session?.user)return;
+ if(profile){updateHeaderAvatar();return}
+ if(!profileLoad){const current=profileVersion;const pending=loadProfile(false).catch(error=>{if(current===profileVersion)console.warn('Could not load profile photo.',error.message)}).finally(()=>{if(profileLoad===pending)profileLoad=null});profileLoad=pending}
 }
 
 function renderProfile() {
@@ -83,7 +95,7 @@ function renderEditor() {
   profileView.innerHTML = `
     <div class="profile-edit-page">
       <button class="back-btn" data-profile-action="cancel">← Back to profile</button>
-      <div class="page-head"><div><p class="eyebrow">YOUR DETAILS</p><h1>Edit profile</h1><p>Make this corner of Mise & Meal feel like yours.</p></div></div>
+      <div class="page-head"><div><p class="eyebrow">YOUR DETAILS</p><h1>Edit profile</h1><p>Make this corner of noms feel like yours.</p></div></div>
       <form class="profile-form" id="profile-form">
         <section class="panel avatar-editor">
           ${avatarMarkup('profile-avatar profile-avatar-small')}
@@ -108,11 +120,11 @@ function renderEditor() {
     </div>`;
 }
 
-async function uploadAvatar(file) {
+async function uploadAvatar(file,userId) {
   if (!file?.size) return profile.avatar_url;
   if (file.size > 5 * 1024 * 1024) throw new Error('Profile pictures must be 5 MB or smaller.');
   const extension = file.name.split('.').pop().toLowerCase();
-  const path = `${session.user.id}/avatar.${extension}`;
+  const path = `${userId}/avatar.${extension}`;
   const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
   if (error) throw error;
   const { data } = supabase.storage.from('avatars').getPublicUrl(path);
@@ -146,10 +158,13 @@ document.addEventListener('submit', async event => {
   const data = new FormData(form);
   button.disabled = true;
   message.textContent = 'Saving…';
+  const current=profileVersion,userId=session?.user?.id;if(!userId)return;
+  profileRequest++;
   try {
-    const avatarUrl = await uploadAvatar(data.get('avatar'));
+    const avatarUrl = await uploadAvatar(data.get('avatar'),userId);
+    if(current!==profileVersion)return;
     const values = {
-      id: session.user.id,
+      id: userId,
       display_name: data.get('display_name').trim(),
       username: data.get('username').trim().toLowerCase(),
       bio: data.get('bio').trim() || null,
@@ -159,22 +174,24 @@ document.addEventListener('submit', async event => {
       favorite_cuisines: data.getAll('favorite_cuisines')
     };
     const saved = await supabase.from('profiles').upsert(values).select().single();
+    if(current!==profileVersion)return;
     if (saved.error) throw saved.error;
     profile = saved.data;
     updateHeaderAvatar();
     renderProfile();
   } catch (error) {
+    if(current!==profileVersion||!form.isConnected)return;
     button.disabled = false;
     message.textContent = error.code === '23505' ? 'That username is already taken.' : error.message;
   }
 });
 
 window.addEventListener('mise-auth-change', event => {
-  session = event.detail.session;
-  if (!session) { profile = null; profileView.innerHTML = ''; }
+ sessionSeen=true;syncProfileSession(event.detail.session);
 });
-window.addEventListener('mise-profile-open', () => loadProfile().catch(error => {
-  profileView.innerHTML = `<div class="profile-error"><h2>We couldn't load your profile.</h2><p>${escapeHtml(error.message)}</p><p>Make sure the Profile v1 SQL migration has been run in Supabase.</p></div>`;
-}));
+window.addEventListener('mise-profile-open', () => {const current=profileVersion;loadProfile().catch(error => {
+ if(current!==profileVersion)return;
+ profileView.innerHTML = `<div class="profile-error"><h2>We couldn't load your profile.</h2><p>${escapeHtml(error.message)}</p><p>Make sure the Profile v1 SQL migration has been run in Supabase.</p></div>`;
+})});
 
-supabase?.auth.getSession().then(({ data }) => { session = data.session; });
+supabase?.auth.getSession().then(({ data }) => {if(!sessionSeen)syncProfileSession(data.session)}).catch(error=>console.warn('Could not load profile session.',error.message));

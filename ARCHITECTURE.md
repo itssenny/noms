@@ -1,4 +1,4 @@
-# Mise & Meal architecture
+# noms architecture
 
 - Frontend: responsive vanilla JavaScript SPA. `app.js` renders product surfaces; `ingredients.js` owns catalogue search, selection, and shared unit options.
 - Backend and authentication: Supabase PostgreSQL and Supabase Auth through `supabase-client.js`. Browser configuration uses a publishable key, never a service-role key. The Ruby build supports public configuration from environment variables or `supabase-config.local.js`.
@@ -50,3 +50,9 @@ Catalogue add/edit now uses a native modal dialog with Save/Cancel and Escape ha
 Recipe tag catalogue: migration 013 creates shared recipe_tags for signed-in users, seeded by cuisine, diet, meal and style. Migration 014 lets signed-in users contribute custom tags as shared “Other” entries; clients cannot edit or delete catalogue rows. Recipes retain their tag arrays, and the editor displays all selected tags in cards, details and previews. Typed tags are added to the catalogue when committed as chips. The recipe editor loads up to 500 catalogue tags on opening; unavailable setup leaves typed tags on the recipe and shows a setup message.
 
 Planner recipe cards open the same native preview dialog as shopping recipe labels. Open full recipe preserves the return destination. Custom and native dialogs use 240ms entry transitions; native dialogs and explicit custom close actions fade out. Reduced-motion preference disables the transitions.
+
+Personal category colours: migration 015 creates category_colour_preferences keyed by user/category with owner-only read/write policies and validated hex values. category-colours.js loads preferences with the kitchen, guards late account responses and saves them from Manage ingredients. list-models.mjs supplies one palette to the catalogue, inventory, shopping, recipe ingredients and home top-up dots; account changes clear overrides. Default-colour changes remain drafts until saved. Setup failures leave the default palette usable with a setup message in Manage ingredients.
+
+Header photo: profile.js owns the avatar, loading it at sign-in rather than only when the profile opens. Same-account auth refreshes preserve it; sign-out/account switches clear it and stale profile reads/saves are ignored. auth.js only controls sign-in visibility/email. Saving an existing recipe returns to the updated detail page while preserving the original Back destination.
+
+The visible product name is noms. Existing storage keys and internal mise-prefixed events remain stable to preserve local planner/shopping data.
