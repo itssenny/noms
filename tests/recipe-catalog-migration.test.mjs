@@ -25,9 +25,15 @@ test('shared catalogue, private library, publication code lifecycle and RLS rema
  await db.exec(await sql('020_recipe_catalog.sql'));
  await db.exec(await sql('021_starter_recipes.sql'));
  await db.exec(await sql('022_recipe_time_type.sql'));await db.exec(await sql('022_recipe_time_type.sql'));
+ await db.exec(await sql('020_recipe_catalog.sql'));await db.exec(await sql('021_starter_recipes.sql'));await db.exec(await sql('022_recipe_time_type.sql'));
+ await db.exec(await sql('023_managed_profiles.sql'));
+ await db.exec(await sql('024_profile_edit_permissions.sql'));
+ await db.exec(await sql('024_profile_edit_permissions.sql'));
+ const nomsId=(await db.query("select id from profiles where username='noms'")).rows[0].id;
+ await db.exec(`insert into profile_memberships(profile_id,user_id,role) values ('${nomsId}','${a}','owner')`);
  const seeded=(await db.query('select id,share_code from recipes where catalog_key is not null order by id')).rows;
  assert.equal(seeded.length,3);for(const row of seeded)assert.match(row.share_code,/^[A-HJ-NP-Z2-9]{6}$/);
- await db.exec(await sql('020_recipe_catalog.sql'));await db.exec(await sql('021_starter_recipes.sql'));await db.exec(await sql('022_recipe_time_type.sql'));
+ await db.exec(await sql('021_starter_recipes.sql'));
  assert.deepEqual((await db.query('select id,share_code from recipes where catalog_key is not null order by id')).rows,seeded);
  assert.equal((await db.query('select count(*)::int n from recipe_ingredients ri join recipes r on r.id=ri.recipe_id where r.catalog_key is not null')).rows[0].n,21);
  assert.equal((await db.query("select ingredient_id from recipe_ingredients ri join recipes r on r.id=ri.recipe_id where r.catalog_key='miso-chickpea-bowls-v1' and ingredient_id=$1",[rice])).rows[0].ingredient_id,rice);
@@ -36,15 +42,36 @@ test('shared catalogue, private library, publication code lifecycle and RLS rema
  const codeLookup=async code=>(await db.query('select get_recipe_by_code($1) value',[code])).rows[0]?.value;
  await as(b);assert.equal((await discover()).length,3); // Private creator profile keeps previous public recipe hidden.
  assert.equal((await db.query('select * from recipes')).rows.length,0);
- let starter=(await discover())[0];assert.equal(starter.creator.username,'noms');assert.equal(starter.user_id,null);
+ let starter=(await discover())[0];assert.equal(starter.creator.username,'noms');assert.equal(starter.user_id,nomsId);assert.equal(starter.creator.profile_type,'official');
  for(const key of ['rating','notes','last_cooked_at'])assert.equal(key in starter,false);
  assert.equal((await codeLookup(' '+starter.share_code.toLowerCase()+' ')).id,starter.id);
  await db.exec(`insert into saved_recipes(user_id,recipe_id) values ('${b}','${starter.id}')`);
  assert.equal((await db.query('select get_saved_recipes() value')).rows[0].value[0].recipe.id,starter.id);
  assert.equal((await db.query(`update recipes set name='Hacked' where id='${starter.id}' returning id`)).rows.length,0);
  await assert.rejects(db.query('select update_recipe($1,$2,$3)',[starter.id,'{}','[]']),/access denied/);
- await assert.rejects(db.exec(`insert into recipes(user_id,catalog_key,name,visibility) values (null,'forged','Forged','public')`),/row-level security/);
- await assert.rejects(db.exec(`insert into recipes(user_id,catalog_key,name,visibility) values ('${b}','forged','Forged','public')`),/check constraint/);
+ await assert.rejects(db.exec(`insert into recipes(user_id,catalog_key,name,visibility) values ('${b}','forged','Forged','public')`),/row-level security/);
+ await as(a);assert.equal((await db.query("select count(*)::int n from recipes where catalog_key is not null")).rows[0].n,3);
+ await db.exec("update profiles set diet_preference='Vegan',cooking_level='Chef Mode' where id=auth.uid()");
+ assert.equal((await db.query('select diet_preference from profiles where id=auth.uid()')).rows[0].diet_preference,'Vegan');
+ await db.query("update profiles set bio='Managed kitchen' where id=$1",[nomsId]);
+ assert.equal((await db.query('select bio from profiles where id=$1',[nomsId])).rows[0].bio,'Managed kitchen');
+ for(const field of ["is_verified=false", "profile_type='personal'", "id=gen_random_uuid()"])
+   await assert.rejects(db.exec('update profiles set '+field+' where id=auth.uid()'),/permission denied/);
+ await as(b);
+ assert.equal((await db.query("update profiles set bio='Hacked' where id=$1 returning id",[nomsId])).rows.length,0);
+ await assert.rejects(db.query("insert into profile_memberships(profile_id,user_id) values ($1,$2)",[nomsId,b]),/permission denied/);
+ await as(a);
+ const original=(await db.query('select id,share_code from recipes where id=$1',[starter.id])).rows[0];
+ await db.query("select update_recipe($1,$2,$3)",[starter.id,JSON.stringify({name:'Owner edited starter',visibility:'public',tags:[],instructions:['Cook rice.'],servings:2,total_minutes:20}),JSON.stringify([{ingredient_id:rice,quantity:100,unit:'g'}])]);
+ assert.deepEqual((await db.query('select id,share_code from recipes where id=$1',[starter.id])).rows[0],original);
+ assert.equal((await db.query('select name from recipes where id=$1',[starter.id])).rows[0].name,'Owner edited starter');
+ assert.equal((await db.query('select can_manage_profile($1) value',[nomsId])).rows[0].value,true);
+ const managed=(await db.query("insert into recipes(user_id,name,visibility) values ($1,'Managed test recipe','public') returning id",[nomsId])).rows[0].id;
+ assert.equal((await db.query("update recipes set name='Edited as Noms' where id=$1 returning name",[managed])).rows[0].name,'Edited as Noms');
+ assert.equal((await db.query('delete from recipes where id=$1 returning id',[managed])).rows.length,1);
+ await as(b);assert.equal((await db.query('select can_manage_profile($1) value',[nomsId])).rows[0].value,false);
+ assert.equal((await db.query("select get_visible_profile('noms') value")).rows[0].value.profile_type,'official');
+ await assert.rejects(db.query('select update_recipe($1,$2,$3)',[starter.id,'{}','[]']),/access denied/);
  await as(a);
  const draft=(await db.query(`insert into recipes(user_id,name,share_code,rating,notes) values ('${a}','Private imported bowl','ABC234',5,'Secret') returning id,share_code`)).rows[0];
  assert.equal(draft.share_code,null);await db.exec(`update recipes set cook_time_type='baking',cook_minutes=12 where id='${draft.id}'`);await assert.rejects(db.exec(`update recipes set cook_time_type='invalid' where id='${draft.id}'`),/check constraint/);
@@ -65,5 +92,9 @@ test('shared catalogue, private library, publication code lifecycle and RLS rema
  await assert.rejects(db.query('select get_recipe_by_code($1)',[code]),/permission denied/);
  // Existing published IDs and codes remain intact throughout.
  await db.exec('reset role');assert.match((await db.query('select share_code from recipes where id=$1',[previous])).rows[0].share_code,/^[A-HJ-NP-Z2-9]{6}$/);
+ await as(b);
+ assert.equal((await db.query('delete from recipes where id=$1 returning id',[starter.id])).rows.length,0);
+ await as(a);
+ assert.equal((await db.query('delete from recipes where id=$1 returning id',[starter.id])).rows.length,1);
  }finally{await db.close()}
 });

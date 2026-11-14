@@ -7,7 +7,7 @@ const user={id:'00000000-0000-0000-0000-000000000002',email:'bob@example.test',c
 const ingredient={id:'10000000-0000-0000-0000-000000000001',canonical_name:'Rice',category:'Carbohydrates',default_unit:'g'};
 const starter={id:'20000000-0000-0000-0000-000000000001',user_id:null,catalog_key:'miso-bowl',share_code:'ABC234',name:'Miso chickpea crunch bowls',visibility:'public',servings:2,tags:['Fusion'],total_minutes:25,instructions:['Cook rice.'],source:'noms kitchen',recipe_ingredients:[{quantity:140,unit:'g',sort_order:0,ingredient}],creator:{username:'noms'}};
 const own={...starter,id:'20000000-0000-0000-0000-000000000002',user_id:user.id,catalog_key:null,share_code:null,name:'My rice bowl',visibility:'private',rating:4};
-window.__mock={saved:false,own,created:[],writes:[],ingredients:[ingredient,{...ingredient,id:'10000000-0000-0000-0000-000000000002',canonical_name:'salt',normalized_name:'salt'}],failImport:false,profile:{id:user.id,username:'bob',display_name:'Bob',diet_preference:'Everything',cooking_level:'Home Cook',is_private:true,favorite_cuisines:[],created_at:user.created_at}};
+window.__mock={saved:false,own,created:[],writes:[],ingredients:[ingredient,{...ingredient,id:'10000000-0000-0000-0000-000000000002',canonical_name:'salt',normalized_name:'salt'}],failImport:false,profile:{id:user.id,username:'bob',display_name:'Bob',profile_type:'personal',diet_preference:'Everything',cooking_level:'Home Cook',is_private:true,favorite_cuisines:[],created_at:user.created_at}};
 const persisted=localStorage.getItem('noms-fixture-db');if(persisted)Object.assign(window.__mock,JSON.parse(persisted));
 export const isSupabaseConfigured=true;
 export const supabase={
@@ -15,7 +15,7 @@ export const supabase={
  storage:{from:()=>({download:async()=>({data:new Blob(['cover'])})})},
  functions:{async invoke(name,{body}){window.__mock.importUrl=body.url;if(window.__mock.failImport)return {error:{context:new Response(JSON.stringify({error:'No structured recipe found. Add it manually.'}))}};return {data:{recipes:[window.__mock.importVariant==='cookies'?{name:'White Chocolate Chip Matcha Cookies',servings:16,tags:['Cookies'],time:30,prep:20,cook:10,source:body.url,ingredients:['2 cups + 3 Tablespoons (265g) all-purpose flour','1 ½ Tablespoons matcha powder','1 teaspoon baking soda','½ teaspoon salt','¾ cup (180g) unsalted butter, melted and slightly cooled','¾ cup (135g) light brown sugar','1/3 cup (70g) granulated sugar','1 large egg + 1 yolk','2 teaspoons vanilla extract','1 cup (175g) white chocolate chips'],steps:['Mix the cookie dough.','Bake the cookies.']}:{name:'Imported bowl',servings:2,tags:['Fusion'],time:20,prep:5,cook:15,source:body.url,ingredients:['140 g Rice','one handful mystery'],steps:['Cook rice.','Serve.']}]}}}},
  from(table){let op='select',values,filters={},single=false,pattern='';const q={select(){return q},eq(k,v){filters[k]=v;return q},ilike(k,v){pattern=v;return q},order(){return q},limit(){return q},insert(v){op='insert';values=v;return q},upsert(v){op='upsert';values=v;return q},update(v){op='update';values=v;return q},delete(){op='delete';return q},single(){single=true;return q},maybeSingle(){single=true;return q},then(resolve){const m=window.__mock;let data=[];if(op!=='select')m.writes.push({table,op,values});
- if(table==='profiles')data=m.profile;
+ if(table==='profiles')data=op==='select'?[m.profile]:m.profile;
  if(table==='recipes'){if(op==='insert'){data={...values,id:'20000000-0000-0000-0000-'+String(m.created.length+3).padStart(12,'0'),share_code:null,recipe_ingredients:[]};m.created.push(data)}else{data=[m.own,...m.created];if(filters.id)data=data.filter(x=>x.id===filters.id);if(single)data=data[0]}}
  if(table==='saved_recipes')m.saved=op!=='delete';
  if(table==='recipe_ingredients'&&op==='insert'){for(const created of m.created)if(values.some(x=>x.recipe_id===created.id))created.recipe_ingredients=values.filter(x=>x.recipe_id===created.id).map(x=>({...x,ingredient:m.ingredients.find(i=>i.id===x.ingredient_id)}))}
@@ -24,7 +24,7 @@ export const supabase={
  if(op==='insert'){const added={...values,id:'10000000-0000-0000-0000-'+String(m.ingredients.length+1).padStart(12,'0'),normalized_name:values.canonical_name.toLowerCase()};m.ingredients.push(added);data=added}
  else{data=m.ingredients.filter(i=>filters.normalized_name?i.canonical_name.toLowerCase()===filters.normalized_name:i.canonical_name.toLowerCase().includes(pattern.replaceAll('%','').toLowerCase()));if(single)data=data[0]}
  }
- localStorage.setItem('noms-fixture-db',JSON.stringify(m));
+ if(single&&Array.isArray(data))data=data[0];localStorage.setItem('noms-fixture-db',JSON.stringify(m));
  resolve({data})}};return q},
  async rpc(name,args){const m=window.__mock;if(name==='discover_recipes')return {data:!args.p_search||/miso|abc234/i.test(args.p_search)?[starter]:[]};if(name==='get_saved_recipes')return {data:m.saved?[{recipe_id:starter.id,recipe:starter}]:[]};if(name==='get_visible_recipe'||name==='get_recipe_by_code')return {data:starter};return {data:[]}}
 };`;

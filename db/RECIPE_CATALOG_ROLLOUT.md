@@ -14,7 +14,7 @@ Supabase references: [function configuration](https://supabase.com/docs/guides/f
 ## Expected behaviour
 
 - Discover starts with Miso chickpea crunch bowls, Creamy gochujang pasta, and Green goddess chickpea toast, plus recipes whose author profile and recipe are both public. It is available inside the signed-in shell, with search and pages of 24 recipes.
-- Starters reuse shared catalogue ingredients, are read-only to app users, and can be bookmarked in Saved. They do not increase Created counts or copy records into each account.
+- Starters reuse shared catalogue ingredients and belong to the official @noms profile after migration 023. Authorized managers can edit/delete them in @noms Created; other users can bookmark them in Saved. They are never copied into personal accounts.
 - Imported recipes start private in the review editor. Confirm every ingredient and any missing servings/time, edit as needed, then save to Created recipes. Importing alone writes no recipe or ingredient rows.
 - Private drafts have no code. First publication assigns an immutable six-character code; changing back to private retains the code but prevents visitor lookup. A private creator profile still hides its public recipes. UUID links continue to work.
 - The three starter recipes are original text with all recipe ingredients listed; water used for cooking/loosening sauces is not a stock-tracked ingredient. No external covers are downloaded.
@@ -42,3 +42,24 @@ Only complete JSON-LD Recipe data is supported. Sites requiring login, JavaScrip
 Ingredient parsing deliberately leaves ranges, ambiguous units, package sizes and informal amounts for review. Exact visible catalogue matches can be preselected; other names use the existing picker, or the explicit Add missing ingredients & save recipe confirmation. Required fields and duplicate/incomplete rows are validated before writes. Imports do not infer missing servings, timings or quantities. Personal feedback for Saved recipes retains the existing owner-only behaviour. Existing recipe creation still uses multiple requests and compensating cleanup rather than a new atomic transaction.
 
 The first version has no persistent per-user import quota; apply project/gateway rate limiting appropriate to the deployment before broad public rollout. Authentication, response/time bounds and safe egress are enforced in code. The catalogue remains small and searchable; future editorial tooling and social imports are separate work.
+
+## Managed profiles and profile-save repair
+
+Apply 023_managed_profiles.sql once after migrations 001–022, if it has not already been applied. It preserves starter recipe IDs, share codes, ingredient links and saves while assigning the three starters to @noms. It creates owner memberships for existing personal accounts. Do not rerun earlier migrations over 023; migration 023 creates named policies and is not designed for repeated execution.
+
+Then apply 024_profile_edit_permissions.sql (safe to rerun). Profile saves now use UPDATE with an ID filter and an explicit editable-field payload instead of UPSERT, which required forbidden INSERT/UPDATE privileges on identity columns. The editable-column grant permits diet/cooking preferences without granting changes to id, profile_type or is_verified. Existing owner RLS remains enabled; no service key belongs in the frontend.
+
+An operator must grant the intended existing Auth user access to @noms. Replace the placeholder with that user's UUID from Supabase Authentication, never an email guessed from client metadata:
+
+```sql
+insert into public.profile_memberships (profile_id, user_id, role)
+select id, '<EXISTING_AUTH_USER_UUID>'::uuid, 'owner'
+from public.profiles where username = 'noms' and profile_type = 'official'
+on conflict (profile_id, user_id) do update set role = 'owner';
+```
+
+This needs no new email/account. Use role owner for profile editing; editor memberships can manage recipes but cannot change profile details. Official/brand profiles remain public, and the privacy checkbox is disabled for them. Verification remains operator controlled.
+
+Build with npm run build and deploy the generated dist directory with the current Supabase URL/publishable key. Refresh the app after membership provisioning; choose @noms in the profile selector to see its three Created recipes, edit or delete a starter through Recipe options. Personal Created stays separate. Avoid rerunning starter seeding to restore intentionally deleted recipes unless that is explicitly intended.
+
+Verification: the 142-test Node suite includes PostgreSQL owner/non-owner RLS, restricted profile columns, actual starter edit/delete, stable IDs/codes, and stale account-load rejection. tests/managed-profiles-browser.cjs exercises personal dietary/cooking saves, switching to @noms, three Created starters, official profile editing, verified author attribution beside the code, and starter editing/deletion against a local mock backend. Run it with the same PLAYWRIGHT_MODULE, FOODHUB_URL and BROWSER_EXECUTABLE variables used by recipe-catalog-browser.cjs. Hosted database migrations, membership provisioning, Auth and Storage integration still need verification on the target Supabase project; these local tests do not apply remote changes.

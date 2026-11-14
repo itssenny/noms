@@ -34,15 +34,15 @@ function updateHeaderAvatar() {
 
 async function loadProfile(render=true) {
   if (!session?.user) return;
-  const user=session.user,current=profileVersion,request=++profileRequest,visit=visitorRequest;
+  const user=session.user,target=window.miseActiveProfile?.id||user.id,current=profileVersion,request=++profileRequest,visit=visitorRequest;
   if(render)profileView.innerHTML = '<div class="profile-loading">Setting the table…</div>';
-  const { data, error } = await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle();
+  const { data, error } = await supabase.from('profiles').select('*').eq('id',target).maybeSingle();
   if(current!==profileVersion||request!==profileRequest)return;
   if (error) throw error;
   let loaded=data;
-  if (!loaded) {
+  if (!loaded && target===user.id) {
     const fallbackName = user.user_metadata?.display_name || '';
-    const created = await supabase.from('profiles').insert({ id:user.id,display_name:fallbackName,created_at:user.created_at }).select().single();
+    const created = await supabase.from('profiles').insert({ id:user.id,display_name:fallbackName }).select().single();
     if(current!==profileVersion||request!==profileRequest)return;
     if (created.error) throw created.error;
     loaded=created.data;
@@ -71,8 +71,8 @@ function renderProfile() {
         <div class="profile-identity">
           ${avatarMarkup()}
           <div class="profile-copy">
-            <p class="eyebrow">MY KITCHEN</p>
-            <h1>${escapeHtml(name)}</h1>
+            <p class="eyebrow">${profile.profile_type==='official'||profile.profile_type==='brand'?'OFFICIAL PROFILE':'MY KITCHEN'}</p>
+            <h1>${escapeHtml(name)}${profile.is_verified?'<span class="verified-mark" aria-label="Official profile">✓</span>':''}</h1>
             <p class="profile-handle">${escapeHtml(username)}</p>
             ${profile.bio ? `<p class="profile-bio">${escapeHtml(profile.bio)}</p>` : '<p class="profile-bio profile-empty">Add a little about what you love to cook.</p>'}
             <div class="profile-tags"><span>${escapeHtml(profile.diet_preference)}</span><i>·</i><span>${escapeHtml(profile.cooking_level)}</span></div>
@@ -115,7 +115,7 @@ function renderEditor() {
             <label>Cooking level<select name="cooking_level">${['Beginner', 'Home Cook', 'Confident Cook', 'Chef Mode'].map(value => `<option ${value === profile.cooking_level ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
           </div>
           <fieldset class="privacy-settings"><legend>Privacy</legend>
-          <label class="privacy-choice"><input type="checkbox" name="is_private" ${profile.is_private!==false?'checked':''}> Private Profile</label>
+          <label class="privacy-choice"><input type="checkbox" name="is_private" ${profile.profile_type==='official'||profile.profile_type==='brand'?'disabled':''} ${profile.is_private!==false?'checked':''}> Private Profile</label>
           <p>Only you can see your profile and recipe collection. Your recipes won't appear on your public profile.</p>
           <label class="privacy-choice"><input type="checkbox" name="show_diet" ${profile.show_diet?'checked':''}> Show diet preference on my public profile</label>
           <label class="privacy-choice"><input type="checkbox" name="show_cooking_level" ${profile.show_cooking_level?'checked':''}> Show cooking level on my public profile</label>
@@ -168,10 +168,9 @@ document.addEventListener('submit', async event => {
   const current=profileVersion,userId=session?.user?.id;if(!userId)return;
   profileRequest++;
   try {
-    const avatarUrl = await uploadAvatar(data.get('avatar'),userId);
+    const avatarUrl = await uploadAvatar(data.get('avatar'),profile.id);
     if(current!==profileVersion)return;
     const values = {
-      id: userId,
       display_name: data.get('display_name').trim(),
       username: data.get('username').trim().toLowerCase(),
       bio: data.get('bio').trim() || null,
@@ -179,15 +178,16 @@ document.addEventListener('submit', async event => {
       diet_preference: data.get('diet_preference'),
       cooking_level: data.get('cooking_level'),
       favorite_cuisines: data.getAll('favorite_cuisines'),
-      is_private:data.has('is_private'),show_diet:data.has('show_diet'),show_cooking_level:data.has('show_cooking_level')
+      is_private:profile.profile_type==='official'||profile.profile_type==='brand'?false:data.has('is_private'),show_diet:data.has('show_diet'),show_cooking_level:data.has('show_cooking_level')
     };
-    const saved = await supabase.from('profiles').upsert(values).select().single();
+    const saved = await supabase.from('profiles').update(values).eq('id',profile.id).select().single();
     if(current!==profileVersion)return;
     if (saved.error) throw saved.error;
     profile = saved.data;
     updateHeaderAvatar();
+    window.miseActiveProfile=profile;
     renderProfile();
-    window.dispatchEvent(new CustomEvent('mise-profile-saved'));
+    window.dispatchEvent(new CustomEvent('mise-profile-saved',{detail:{profile}}));
   } catch (error) {
     if(current!==profileVersion||!form.isConnected)return;
     button.disabled = false;
@@ -197,6 +197,10 @@ document.addEventListener('submit', async event => {
 
 window.addEventListener('mise-auth-change', event => {
  sessionSeen=true;syncProfileSession(event.detail.session);
+});
+window.addEventListener('mise-active-profile-change',event=>{
+ profile=event.detail.profile;profileVersion++;profileRequest++;profileLoad=null;updateHeaderAvatar();
+ if(profileView.classList.contains('active')&&!/^#\/profile\//.test(location.hash))renderProfile();
 });
 window.addEventListener('mise-profile-open', () => {visitorRequest++;const current=profileVersion;loadProfile().catch(error => {
  if(current!==profileVersion)return;
@@ -212,14 +216,14 @@ window.addEventListener('mise-profile-visit',async event=>{
  const {data,error}=await supabase.rpc('get_visible_profile',{p_lookup:event.detail.lookup});
  if(request!==visitorRequest||version!==profileVersion)return;if(error)throw error;
  if(!data){profileView.innerHTML='<div class="panel"><h1>Profile unavailable</h1></div>';return}
- if(data.id===session?.user?.id){profile=data;renderProfile();return}
+ if(data.id===(window.miseActiveProfile?.id||session?.user?.id)){profile=data;renderProfile();return}
  const p=data;
  let rows=[];
  if(!p.is_private){const result=await supabase.rpc('get_profile_recipes',{p_user_id:p.id});if(result.error)throw result.error;rows=result.data||[]}
  if(request!==visitorRequest||version!==profileVersion)return;
  profileView.innerHTML=`<div class="profile-page"><section class="profile-card"><div class="profile-identity">
  ${p.avatar_url?`<img class="profile-avatar" src="${escapeHtml(p.avatar_url)}" alt="Profile avatar">`:''}
- <div class="profile-copy"><h1>${escapeHtml(p.is_private?(p.username?'@'+p.username:'Cook'):(p.display_name||p.username||'Cook'))}</h1><p>${p.username?'@'+escapeHtml(p.username):''}</p>
+ <div class="profile-copy"><h1>${escapeHtml(p.is_private?(p.username?'@'+p.username:'Cook'):(p.display_name||p.username||'Cook'))}</h1><p>${p.username?'@'+escapeHtml(p.username):''}</p>${p.profile_type==='official'||p.profile_type==='brand'?`<p class="official-profile-label">${p.is_verified?'Verified official':'Official'} Noms profile</p>`:''}
  ${p.is_private?'<p>This profile is private.</p>':`<p>${escapeHtml(p.bio)}</p><div class="profile-tags">${[p.diet_preference,p.cooking_level,...(p.favorite_cuisines||[])].filter(Boolean).map(value=>`<span>${escapeHtml(value)}</span>`).join('')}</div>`}
  </div></div></section>${p.is_private?'':`<section class="panel"><h2>Public recipes</h2><div class="recipe-grid">${rows.map(recipe=>`<article class="panel"><h3>${escapeHtml(recipe.name)}</h3><button class="secondary-btn" data-visit-recipe="${escapeHtml(recipe.id)}">View recipe</button></article>`).join('')||'<p>No public recipes yet.</p>'}</div></section>`}</div>`;
  }catch(error){if(request===visitorRequest&&version===profileVersion)profileView.innerHTML=`<div class="panel"><h1>Profile unavailable</h1><p>${escapeHtml(error.message)}</p></div>`}
