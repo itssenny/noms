@@ -17,8 +17,9 @@ These migrations were tested locally and have not been applied to production. No
 - Add recipes within a Cookbook through a searchable picker for Created/Saved or paginated Discover. Multiple recipes can be selected across searches. Discover recipes are saved before their IDs are added; originals are never copied.
 - Recipe detail actions are ordered Start cooking, Add to meal plan, Add ingredients to shopping list, Add to Cookbook, then the Save bookmark for other users’ recipes. The Cookbook selector supports multiple collections per recipe.
 - Recipe cards inside a Cookbook omit the redundant Add to Cookbook action. Open the recipe detail to manage its memberships in multiple Cookbooks.
+- Profile cards are compact white rectangles with small thumbnails and a thin black frame. Cookbook thumbnails are plain pictures with a Cookbook label. Entire cards open with pointer or keyboard; author links remain independent. Recipe Open recipe/Edit text actions and on-card visibility selectors are omitted. Change recipe visibility in its recipe editor and Cookbook visibility in Edit Cookbook. Recipe and Discover cards use a stronger palette-matched frame/shadow on hover. No additional migration is required for these card changes.
 - Cookbook cards and headings show recipe count · author, with a profile link. Profile Cookbooks open the same detail view; visitor views omit all collection mutation controls.
-- What I made uses existing recorded cooking history for the owner’s created recipes. It is private; visitor profiles do not expose personal cooking history or notes. Creating a new history model for recipes cooked from other authors is outside this change.
+- What I made now uses explicit per-user check-ins from migration 035_recipe_made_checkins.sql, including created, saved and unsaved accessible recipes. It remains private; visitor profiles do not expose cooking history or personal notes. Legacy automatic completion timestamps are not imported.
 
 ## Privacy and access
 

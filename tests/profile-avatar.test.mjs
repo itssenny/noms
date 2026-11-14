@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFile} from 'node:fs/promises';
-const source=(await readFile(new URL('../profile.js',import.meta.url),'utf8')).replace(/^import.*\n/,'');
+const source=(await readFile(new URL('../profile.js',import.meta.url),'utf8')).replace(/^import.*\n/gm,'');
 const a={user:{id:'a',email:'alice@example.test',created_at:'2026-01-01'}},b={user:{id:'b',email:'bob@example.test',created_at:'2026-01-01'}};
 function harness(){const callbacks={},queries=[],view={innerHTML:'',classList:{contains:()=>false}},button={innerHTML:'',set textContent(value){this.innerHTML=value}};
  const context=vm.createContext({console,document:{querySelector:selector=>selector==='#profile-button'?button:view,addEventListener(){}},window:{addEventListener:(name,cb)=>callbacks[name]=cb},supabase:{auth:{getSession:async()=>({data:{session:a}})},from(){return {select(){return this},eq(){return this},maybeSingle(){return new Promise(resolve=>queries.push(resolve))}}}}});vm.runInContext(source,context);return {context,callbacks,queries,view,button}}

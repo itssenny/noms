@@ -1,5 +1,7 @@
 // A small local outline icon set: no external runtime or network dependency.
 const shapes={
+ lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+ globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18Z"/>',
  trash2:'<path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M5 6l1 14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-14M10 10v7m4-7v7"/>',
  bookmark:'<path d="M6 3h12v18l-6-4-6 4V3Z"/>',
  compass:'<circle cx="12" cy="12" r="9"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5L16 8Z"/>',
@@ -104,3 +106,44 @@ if(typeof document!=='undefined'){
  window.addEventListener('resize',closeSelectMenu);
  new MutationObserver(()=>{if(openSelect&&(!openSelect.isConnected||openSelect.disabled||openSelect.hidden))closeSelectMenu();}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','hidden']});
 }
+
+// Card actions open on hover, and retain native details keyboard/tap behavior.
+// Keep Safari from blurring the summary and hiding the target before click.
+document.addEventListener('pointerdown',event=>{if(event.target.closest('.recipe-card-menu button')){event.preventDefault();clearTimeout(cardActionsTimer);}},true);
+let hoveredCardActions=null,cardActionsTimer;
+function closeCardActions(){clearTimeout(cardActionsTimer);if(hoveredCardActions)hoveredCardActions.open=false;hoveredCardActions=null;}
+document.addEventListener('pointerover',event=>{
+ if(event.pointerType==='touch')return;
+ const actions=event.target.closest('.recipe-card-actions');if(!actions)return;
+ clearTimeout(cardActionsTimer);if(hoveredCardActions&&hoveredCardActions!==actions)closeCardActions();
+ hoveredCardActions=actions;actions.open=true;
+});
+document.addEventListener('pointerout',event=>{
+ const actions=event.target.closest('.recipe-card-actions');if(!actions||actions.contains(event.relatedTarget))return;
+ cardActionsTimer=setTimeout(()=>{if(!actions.matches(':focus-within')){actions.open=false;if(hoveredCardActions===actions)hoveredCardActions=null;}},180);
+});
+document.addEventListener('click',event=>{
+ for(const actions of document.querySelectorAll('.recipe-card-actions[open]'))if(!actions.contains(event.target)||event.target.closest('button'))actions.open=false;
+});
+document.addEventListener('keydown',event=>{
+ if(event.key!=='Escape')return;const actions=event.target.closest('.recipe-card-actions[open]');if(actions){event.preventDefault();event.stopPropagation();actions.open=false;actions.querySelector('summary').focus();}
+},true);
+document.addEventListener('focusout',event=>{const actions=event.target.closest('.recipe-card-actions');if(!actions||actions.contains(event.relatedTarget))return;setTimeout(()=>{if(!actions.matches(':hover,:focus-within'))actions.open=false;},0);});
+
+// Card density changes layout in place, preserving loaded images and actions.
+function setRecipeDensity(value){
+ const density=['large','medium','miniature'].includes(value)?value:'large';
+ const root=document.querySelector('#recipes-view');if(root)root.dataset.recipeDensity=density;
+ for(const button of document.querySelectorAll('button[data-recipe-density]'))button.setAttribute('aria-pressed',String(button.dataset.recipeDensity===density));
+ try{localStorage.setItem('noms-recipe-density',density);}catch{}
+}
+let storedRecipeDensity='large';try{storedRecipeDensity=localStorage.getItem('noms-recipe-density')||'large';}catch{}
+setRecipeDensity(storedRecipeDensity);
+document.addEventListener('click',event=>{const button=event.target.closest('button[data-recipe-density]');if(button)setRecipeDensity(button.dataset.recipeDensity);});
+
+document.addEventListener('toggle',event=>{
+ const actions=event.target;if(!actions.matches?.('.recipe-card-actions')||!actions.open)return;
+ const menu=actions.querySelector('.recipe-card-menu');menu.style.transform='';
+ const box=menu.getBoundingClientRect(),offset=box.left<8?8-box.left:box.right>innerWidth-8?innerWidth-8-box.right:0;
+ if(offset)menu.style.transform=`translateX(${offset}px)`;
+},true);

@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js';
+import {profileCardColour,profileCardCover} from './profile-cards.mjs';
 
 const profileView = document.querySelector('#profile-view');
 const profileButton = document.querySelector('#profile-button');
@@ -6,20 +7,40 @@ const cuisines = ['Italian', 'Japanese', 'Chinese', 'Mexican', 'Korean', 'Medite
 let session = null;
 let visitorRequest=0;
 let profileCollectionContext=null,profileCollectionRequest=0;
+const profileCoverUrls=new Set();
+function clearProfileCovers(){for(const url of profileCoverUrls)URL.revokeObjectURL(url);profileCoverUrls.clear()}
+async function hydrateProfileCovers(){
+ const version=profileVersion,request=profileCollectionRequest;
+ await Promise.all([...profileView.querySelectorAll('[data-profile-cover-path]')].map(async node=>{
+ try{const {data,error}=await supabase.storage.from('recipe-covers').download(node.dataset.profileCoverPath);if(error||!data||version!==profileVersion||request!==profileCollectionRequest||!node.isConnected)return;const url=URL.createObjectURL(data);profileCoverUrls.add(url);const image=document.createElement('img');image.src=url;image.alt='';image.loading='lazy';image.setAttribute('style',node.dataset.profileCoverFraming||'');node.replaceChildren(image)}catch{};
+ }));
+}
+document.addEventListener('click',event=>{const card=event.target.closest('[data-profile-recipe]');if(card&&!event.target.closest('a,button,input,select,label'))window.dispatchEvent(new CustomEvent('noms-open-profile-recipe',{detail:{id:card.dataset.profileRecipe}}))});
+document.addEventListener('keydown',event=>{const card=event.target.closest('.profile-collection-card');if(card&&event.target===card&&['Enter',' '].includes(event.key)){event.preventDefault();card.click()}});
+
 function profileCollectionTabs(rows,own,profileId){
- profileCollectionContext={rows,own,profileId};profileCollectionRequest++;
+ clearProfileCovers();profileCollectionContext={rows,own,profileId};profileCollectionRequest++;
  return `<section class="panel profile-collections"><nav class="profile-collection-tabs" role="tablist" aria-label="Profile collections">${[['created','Created recipes'],['made','What I made'],['cookbooks','Cookbooks']].map(([id,label])=>`<button type="button" role="tab" id="profile-tab-${id}" aria-controls="profile-collection-panel" aria-selected="${id==='created'}" tabindex="${id==='created'?0:-1}" data-profile-tab="${id}">${label}</button>`).join('')}</nav><div id="profile-collection-panel" role="tabpanel" aria-labelledby="profile-tab-created">${profileRecipeCollection(rows,own)}</div></section>`;
 }
-function profileRecipeCollection(rows,own,made=false){return `<div class="recipe-grid">${rows.map(recipe=>`<article class="panel">${own?`<small>${recipe.visibility==='public'?'Public':'Private'}${made?` · ${escapeHtml(new Date(recipe.lastCookedAt).toLocaleDateString())}`:''}</small>`:''}<h3>${escapeHtml(recipe.name)}</h3><button class="text-btn" data-visit-recipe="${escapeHtml(recipe.id)}">Open recipe</button>${own&&!made?`<button class="text-btn" data-edit-recipe="${escapeHtml(recipe.id)}">Edit</button>`:''}</article>`).join('')||`<p>${made?'No cooking history yet. Finish cooking a recipe to see it here.':'No created recipes yet.'}</p>`}</div>`}
+function profileRecipeCollection(rows,own,made=false){return `<div class="recipe-grid profile-card-grid">${rows.map(recipe=>`<article class="profile-collection-card profile-recipe-card" style="--profile-card-color:${profileCardColour(recipe)}" data-profile-recipe="${escapeHtml(recipe.id)}" role="link" tabindex="0" aria-label="Open ${escapeHtml(recipe.name)}">${profileCardCover(recipe)}<div class="profile-card-copy"><h3>${escapeHtml(recipe.name)}</h3>${made?`<p>Made ${escapeHtml(new Date(recipe.lastCookedAt).toLocaleDateString())}</p>${recipe.checkinRating?`<p>Your rating: ${escapeHtml(recipe.checkinRating)} / 5</p>`:''}${recipe.checkinComment?`<p class="made-feedback-copy"><strong>Your public comment</strong> ${escapeHtml(recipe.checkinComment)}</p>`:''}${recipe.checkinNote?`<p class="made-feedback-copy"><strong>Personal note · only you</strong> ${escapeHtml(recipe.checkinNote)}</p>`:''}`:''}</div></article>`).join('')||`<p>${made?'Mark a recipe as made to see it here.':'No created recipes yet.'}</p>`}</div>`}
 async function showProfileCollection(tab){
  const ctx=profileCollectionContext,panel=profileView.querySelector('#profile-collection-panel'),request=++profileCollectionRequest,version=profileVersion;if(!ctx||!panel)return;
  for(const button of profileView.querySelectorAll('[data-profile-tab]')){const active=button.dataset.profileTab===tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1}
- panel.setAttribute('aria-labelledby','profile-tab-'+tab);
- if(tab==='created'){panel.innerHTML=profileRecipeCollection(ctx.rows,ctx.own);return}
- if(tab==='made'){panel.innerHTML=ctx.own?profileRecipeCollection(ctx.rows.filter(r=>r.lastCookedAt).sort((a,b)=>Date.parse(b.lastCookedAt)-Date.parse(a.lastCookedAt)),true,true):'<p>Cooking history is private.</p>';return}
+ clearProfileCovers();panel.setAttribute('aria-labelledby','profile-tab-'+tab);
+ if(tab==='created'){panel.innerHTML=profileRecipeCollection(ctx.rows,ctx.own);hydrateProfileCovers();return}
+ if(tab==='made'){
+  if(!ctx.own){panel.innerHTML='<p>Cooking history is private.</p>';return;}
+  panel.innerHTML='<p role="status">Loading what you made…</p>';
+  try{const {data,error}=await supabase.rpc('get_made_recipes');if(request!==profileCollectionRequest||version!==profileVersion||!panel.isConnected)return;if(error)throw error;
+   const rows=(data||[]).filter(row=>row.recipe).map(row=>({...row.recipe,lastCookedAt:row.made_at,checkinRating:row.personal_rating,checkinNote:row.personal_note,checkinComment:row.comment}));
+   panel.innerHTML=profileRecipeCollection(rows,true,true);hydrateProfileCovers();
+  }catch(error){if(request===profileCollectionRequest&&version===profileVersion&&panel.isConnected)panel.innerHTML=`<p role="alert">Could not load cooking history. ${escapeHtml(error.message)}</p><button type="button" class="text-btn" data-profile-tab="made">Try again</button>`;}
+  return;
+ }
  panel.innerHTML='<p role="status">Loading Cookbooks…</p>';
  try{const {data,error}=await supabase.rpc('get_profile_cookbooks',{p_profile_id:ctx.profileId});if(request!==profileCollectionRequest||version!==profileVersion||!panel.isConnected)return;if(error)throw error;
- panel.innerHTML=`${ctx.own&&ctx.profileId===session?.user?.id?'<button class="text-btn" data-profile-cookbooks>Manage my Cookbooks →</button>':''}<div class="recipe-grid profile-cookbook-grid">${(data||[]).map(book=>{const author=book.author||{};return `<article class="panel profile-cookbook"><small>${book.visibility==='public'?'Public':'Private'}</small><h3><a href="#/cookbook/${encodeURIComponent(book.id)}" data-cookbook-open="${escapeHtml(book.id)}">${escapeHtml(book.name)}</a></h3><p>${book.recipe_ids.length} recipe${book.recipe_ids.length===1?'':'s'} · <a href="#/profile/${encodeURIComponent(author.username||author.id||book.user_id)}" data-visit-profile="${escapeHtml(author.username||author.id||book.user_id)}">${escapeHtml(author.display_name||author.username||'Cook')}</a></p></article>`}).join('')||'<p>No Cookbooks yet.</p>'}</div>`;
+ ctx.books=data||[];
+ panel.innerHTML=`${ctx.own&&ctx.profileId===session?.user?.id?'<button class="text-btn" data-profile-cookbooks>Manage my Cookbooks →</button>':''}<div class="recipe-grid profile-card-grid profile-cookbook-grid">${ctx.books.map(book=>{const author=book.author||{};return `<article class="profile-collection-card profile-cookbook" style="--profile-card-color:${profileCardColour(book)}" data-cookbook-open="${escapeHtml(book.id)}" role="link" tabindex="0" aria-label="Open ${escapeHtml(book.name)}">${profileCardCover(book.cover||{},'cookbook')}<div class="profile-card-copy"><span class="profile-card-kind">Cookbook</span><h3>${escapeHtml(book.name)}</h3><p>${book.recipe_ids.length} recipe${book.recipe_ids.length===1?'':'s'} · <a href="#/profile/${encodeURIComponent(author.username||author.id||book.user_id)}" data-visit-profile="${escapeHtml(author.username||author.id||book.user_id)}">${escapeHtml(author.display_name||author.username||'Cook')}</a></p></div></article>`}).join('')||'<p>No Cookbooks yet.</p>'}</div>`;hydrateProfileCovers();
  }catch(error){if(request===profileCollectionRequest&&version===profileVersion&&panel.isConnected)panel.innerHTML=`<p role="alert">Could not load Cookbooks. ${escapeHtml(error.message)}</p><button class="text-btn" data-profile-tab="cookbooks">Try again</button>`}
 }
 document.addEventListener('click',event=>{const tab=event.target.closest('[data-profile-tab]');if(tab)showProfileCollection(tab.dataset.profileTab);if(event.target.closest('[data-profile-cookbooks]'))window.dispatchEvent(new CustomEvent('noms-open-cookbooks'))});
@@ -73,7 +94,7 @@ async function loadProfile(render=true) {
 function syncProfileSession(nextSession){
  const changed=(session?.user?.id||null)!==(nextSession?.user?.id||null);
  session=nextSession;
- if(changed){visitorRequest++;profileVersion++;profileRequest++;profile=null;profileLoad=null;profileView.innerHTML='';updateHeaderAvatar()}
+ if(changed){clearProfileCovers();visitorRequest++;profileVersion++;profileRequest++;profile=null;profileLoad=null;profileView.innerHTML='';updateHeaderAvatar()}
  if(!session?.user)return;
  if(profile){updateHeaderAvatar();return}
  if(!profileLoad){const current=profileVersion;const pending=loadProfile(false).catch(error=>{if(current===profileVersion)console.warn('Could not load profile photo.',error.message)}).finally(()=>{if(profileLoad===pending)profileLoad=null});profileLoad=pending}
@@ -109,7 +130,7 @@ function renderProfile() {
         </div>
       </section>
       ${profileCollectionTabs(window.miseOwnedRecipes||[],true,profile.id)}
-    </div>`;
+    </div>`;hydrateProfileCovers();
 }
 
 function renderEditor() {
@@ -245,10 +266,12 @@ window.addEventListener('mise-profile-visit',async event=>{
  ${p.avatar_url?`<img class="profile-avatar" src="${escapeHtml(p.avatar_url)}" alt="Profile avatar">`:''}
  <div class="profile-copy"><h1>${escapeHtml(p.is_private?(p.username?'@'+p.username:'Cook'):(p.display_name||p.username||'Cook'))}</h1><p>${p.username?'@'+escapeHtml(p.username):''}</p>${p.profile_type==='official'||p.profile_type==='brand'?`<p class="official-profile-label">${p.is_verified?'Verified official':'Official'} Noms profile</p>`:''}
  ${p.is_private?'<p>This profile is private.</p>':`<p>${escapeHtml(p.bio)}</p><div class="profile-tags">${[p.diet_preference,p.cooking_level,...(p.favorite_cuisines||[])].filter(Boolean).map(value=>`<span>${escapeHtml(value)}</span>`).join('')}</div>`}
- </div></div></section>${p.is_private?'':`${profileCollectionTabs(rows,false,p.id)}`}</div>`;
+ </div></div></section>${p.is_private?'':`${profileCollectionTabs(rows,false,p.id)}`}</div>`;hydrateProfileCovers();
  }catch(error){if(request===visitorRequest&&version===profileVersion)profileView.innerHTML=`<div class="panel"><h1>Profile unavailable</h1><p>${escapeHtml(error.message)}</p></div>`}
 });
 document.addEventListener('click',event=>{
  if(event.target.closest('[data-profile-share]')){location.hash='/profile/'+encodeURIComponent(profile.username||session.user.id)}
  if(event.target.closest('[data-profile-created]'))window.dispatchEvent(new CustomEvent('noms-open-created'));
 });
+
+window.addEventListener('noms-made-changed',()=>{if(profileView.classList.contains('active')&&profileView.querySelector('[data-profile-tab="made"][aria-selected="true"]'))showProfileCollection('made');});

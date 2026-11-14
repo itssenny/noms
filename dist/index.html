@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="atelier.css?v=cookbooks-public-20261114&dropdowns=2" />
+  <link rel="stylesheet" href="atelier.css?v=plain-profile-thumbnails-20261114&dropdowns=2&smooth=1&card-actions=1&card-fix=3&checkins=2&privacy-badge=2&recipe-views=2&cooking-nav=1" />
 </head>
 <body>
   <section class="auth-view" id="auth-view" aria-labelledby="auth-title">
@@ -47,7 +47,7 @@
     <main id="app">
       <header class="meal-plan-section" id="recipe-page-navigation" hidden>
         <p class="eyebrow">MY RECIPES</p>
-        <nav class="meal-plan-pages" aria-label="Recipes subpages"><a href="#/recipes/created" data-view="recipes" data-recipe-page="created">Created</a><a href="#/recipes/saved" data-view="recipes" data-recipe-page="saved">Saved</a><a href="#/recipes/cookbooks" data-view="recipes" data-recipe-page="cookbooks">Cookbooks</a></nav>
+        <div class="recipe-navigation-row"><nav class="meal-plan-pages" aria-label="Recipes subpages"><a href="#/recipes/created" data-view="recipes" data-recipe-page="created">Created</a><a href="#/recipes/saved" data-view="recipes" data-recipe-page="saved">Saved</a><a href="#/recipes/cookbooks" data-view="recipes" data-recipe-page="cookbooks">Cookbooks</a></nav><div id="recipe-view-controls" class="recipe-view-controls" role="group" aria-label="Recipe card size"><span>View</span><button type="button" data-recipe-density="large" aria-pressed="true">Large</button><button type="button" data-recipe-density="medium" aria-pressed="false">Medium</button><button type="button" data-recipe-density="miniature" aria-pressed="false">Miniature</button></div></div>
       </header>
       <header class="meal-plan-section" id="meal-plan-navigation" hidden>
         <p class="eyebrow">MEAL PLAN</p>
@@ -99,8 +99,8 @@
   <div id="modal-root"></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="supabase-config.local.js"></script>
-  <script type="module" src="app.js?cookbooks=2&v=20261114-community-ratings&dropdowns=2"></script>
-  <script type="module" src="profile.js?cookbooks=2&v=20261114-tracking"></script>
+  <script type="module" src="app.js?cookbooks=2&v=20261114-community-ratings&dropdowns=2&smooth=1&card-actions=1&card-fix=3&checkins=2&privacy-badge=2&recipe-views=2&cooking-nav=1"></script>
+  <script type="module" src="profile.js?cards=2&cookbooks=2&v=20261114-tracking&checkins=2&privacy-badge=2&recipe-views=2&cooking-nav=1"></script>
   <script type="module" src="auth.js"></script>
 </body>
 </html>

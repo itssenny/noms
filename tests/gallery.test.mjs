@@ -18,14 +18,7 @@ test('absent, invalid and future history stays out of cooked rows',()=>{
  const shelves=recipeShelves(['invalid','2027-01-01',null].map((lastCookedAt,i)=>({id:i,name:String(i),lastCookedAt})),{now});assert.equal(shelves[1].recipes.length,0);assert.equal(shelves[2].recipes.length,0);assert.equal(shelves[3].recipes.length,3);
 });
 const source=await readFile(new URL('../app.js',import.meta.url),'utf8');
-function harness(){
- const pending=[],calls=[],messages=[],context=vm.createContext({Date,sessionVersion:1,activeUserId:'a',cookingLog:{recipeId:'r',userId:'a',version:1,promise:null},recipes:[{id:'r'}],home(){},toast:message=>messages.push(message),supabase:{from(table){return {update(values){calls.push({table,values,filters:[]});return this},eq(key,value){calls.at(-1).filters.push([key,value]);return this},select(){return new Promise(resolve=>pending.push(resolve))}}}}});
- vm.runInContext(source.slice(source.indexOf('async function recordCookingCompletion('),source.indexOf("document.addEventListener('input',event=>{if(event.target.matches('[data-gallery-search]")),context);return {context,pending,calls,messages};
-}
-test('completed cooking records once, scoped to owner, without touching inventory',async()=>{
- const {context:c,pending,calls}=harness();await c.recordCookingCompletion();await c.recordCookingCompletion();assert.equal(calls.length,1);assert.equal(calls[0].table,'recipes');assert.deepEqual(calls[0].filters,[['id','r'],['user_id','a']]);pending[0]({data:[{id:'r'}]});await c.cookingLog.promise;assert.ok(c.recipes[0].lastCookedAt);
-});
-test('late cooking-history results cannot change the next account and failures do not invent history',async()=>{
- const {context:c,pending}=harness();await c.recordCookingCompletion();c.activeUserId='b';c.sessionVersion++;pending[0]({data:[{id:'r'}]});await c.cookingLog.promise;assert.equal(c.recipes[0].lastCookedAt,undefined);
- const other=harness();await other.context.recordCookingCompletion();other.pending[0]({error:{message:'offline'}});await other.context.cookingLog.promise;assert.equal(other.context.recipes[0].lastCookedAt,undefined);assert.equal(other.messages.length,1);
+test('finishing cooking only opens a check-in and never writes made history automatically',()=>{
+ const finish=source.slice(source.indexOf('function renderCook(){'),source.indexOf('function reconcile('));
+ assert.ok(finish.includes('reconcile();'));assert.ok(finish.includes('openPostCookFeedback();')); assert.equal(source.includes('recordCookingCompletion'),false);
 });

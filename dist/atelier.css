@@ -324,3 +324,73 @@ svg rect{rx:0;ry:0}
 .cookbook-author{color:inherit;text-decoration:underline;text-underline-offset:3px}.cookbook-card{display:block}.cookbook-card:focus-visible{outline:3px solid var(--burgundy,#860e35);outline-offset:3px}
 .profile-collection-tabs{display:flex;gap:24px;border-bottom:1px solid #ddd;margin-bottom:24px}.profile-collection-tabs button{background:transparent;border:0;border-bottom:3px solid transparent;padding:16px 0;color:inherit;font:inherit;cursor:pointer}.profile-collection-tabs [aria-selected=true]{border-bottom-color:var(--burgundy,#860e35);color:var(--burgundy,#860e35)}.profile-collections .recipe-grid{margin-top:20px}.profile-cookbook h3 a{color:inherit}.profile-cookbook p{font-size:14px;overflow-wrap:anywhere}
 @media(max-width:540px){.profile-collection-tabs{gap:18px}.profile-collection-tabs button{font-size:13px}}
+
+/* Compact white profile cards with small recipe and book-cover thumbnails. */
+#profile-view .profile-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+#profile-view .profile-collection-card{display:flex;align-items:center;gap:16px;min-height:110px;min-width:0;box-sizing:border-box;padding:16px;border:1px solid #000;border-radius:0;overflow:visible;background:#fff;color:#000;cursor:pointer;box-shadow:none;transition:box-shadow .18s ease}
+#profile-view .profile-collection-card:hover{box-shadow:3px 3px 0 #000}#profile-view .profile-collection-card:focus-visible{outline:2px solid #000;outline-offset:4px}
+.profile-card-cover{position:relative;flex:0 0 64px;width:64px;height:64px;display:grid;place-items:center;overflow:hidden;background:#f1efeb;border:0}.profile-card-cover img{width:100%;height:100%;object-fit:cover;min-height:0}.profile-card-cover svg{width:28px;height:28px}
+.profile-card-copy{min-width:0;flex:1;padding:0}.profile-card-copy h3{font:500 20px/1.2 Outfit,sans-serif;margin:0 0 7px;overflow-wrap:anywhere}.profile-card-copy p{font-size:12px;margin:0;line-height:1.5}.profile-card-copy a{color:inherit;text-decoration:underline;text-underline-offset:3px}.profile-card-kind{display:block;font-size:10px;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;color:#5b5650}
+@media(max-width:1000px){#profile-view .profile-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){#profile-view .profile-card-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Top navigation avoids the shared red button hover overlay. */
+.main-nav .nav-item,.main-nav .nav-item:hover{box-shadow:none;transition:background-color 220ms ease}
+.main-nav .nav-item.active,.main-nav .nav-item.active:hover{background:var(--orchid);box-shadow:none}
+@media(prefers-reduced-motion:reduce){.main-nav .nav-item{transition:none}}
+
+/* A compact plus reveals the existing recipe actions without covering the photo. */
+.recipe-card:has(>.recipe-card-actions){overflow:visible}
+.recipe-card:has(>.recipe-card-actions[open]){z-index:6}
+.recipe-card-actions{position:absolute;top:12px;right:12px;z-index:3}
+.recipe-card-actions>summary{display:grid;place-items:center;width:34px;height:34px;padding:7px;border:1px solid #000;background:#fff;color:#000;cursor:pointer;list-style:none;box-sizing:border-box}
+.recipe-card-actions>summary::-webkit-details-marker{display:none}
+.recipe-card-actions>summary:hover{background:var(--orchid);box-shadow:none}
+.recipe-card-actions>summary:focus-visible{outline:2px solid var(--burgundy);outline-offset:3px}
+.recipe-card-menu{position:absolute;top:100%;right:0;width:195px;padding:5px;border:1px solid #000;background:#fff;box-shadow:0 6px 18px #0002}
+.recipe-card-menu>button{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:7px 9px;border:0;background:transparent;color:#000;text-align:left;font:400 13px/1.4 Outfit,sans-serif}
+.recipe-card-menu>button .app-icon{width:16px;height:16px}
+.recipe-card-menu>button:hover,.recipe-card-menu>button:focus-visible{background:var(--orchid);box-shadow:none}
+.recipe-card-menu>button:disabled{opacity:.65}
+@media(pointer:coarse){.recipe-card-actions>summary{width:44px;height:44px}.recipe-card-menu>button{min-height:44px}}
+
+
+
+/* The plus glyph stays centered within both desktop and touch targets. */
+.recipe-card-actions>summary{padding:0;line-height:0;align-items:center;justify-items:center}
+.recipe-card-actions>summary>.app-icon{display:block;width:18px;height:18px;margin:0;vertical-align:initial}
+
+/* Stronger frames on hover follow each recipe's own palette. */
+.recipe-card:hover,.recipe-card:focus-within{border-color:color-mix(in srgb,var(--recipe-color,var(--pink)) 48%,#30202b);box-shadow:3px 3px 0 color-mix(in srgb,var(--recipe-color,var(--pink)) 55%,#30202b);transform:none}
+
+.made-checkin{display:flex;align-items:center;gap:10px;padding:14px;border:1px solid #000;background:var(--citron);font-weight:600;margin:18px 0 10px}.made-checkin input{width:20px;height:20px;accent-color:var(--burgundy)}.post-cook-feedback textarea{resize:none}.made-feedback-copy{white-space:pre-wrap;overflow-wrap:anywhere}.profile-card-copy .made-feedback-copy{margin-top:10px}.made-feedback-copy strong{display:inline;font-size:12px}
+
+#profile-view .profile-card-grid>p:only-child{grid-column:1/-1}
+
+.recipe-title-line{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;margin:16px 0}.recipe-title-line h1{margin:0;min-width:0;overflow-wrap:anywhere}.recipe-privacy-badge{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;padding:6px 9px;border:1px solid currentColor;background:#ffffff80;color:var(--recipe-ink,#000);font-size:12px;font-weight:600;line-height:1.4}.recipe-privacy-badge .app-icon{width:15px;height:15px;display:block}
+
+.recipe-meta-line{flex-wrap:nowrap;gap:8px;margin:12px 0;min-width:0}.recipe-meta-line .creator-attribution{min-width:0;flex:0 1 auto;overflow:hidden}.recipe-meta-line .creator-attribution>span:not(.creator-avatar-fallback):not(.verified-mark){min-width:0;overflow:hidden;text-overflow:ellipsis}.recipe-meta-line .creator-attribution img,.recipe-meta-line .creator-avatar-fallback,.recipe-meta-line .verified-mark{flex-shrink:0}.recipe-meta-line .recipe-privacy-badge{padding:4px 6px;font-size:11px;gap:4px}.recipe-meta-line .share-code{flex-shrink:0;min-height:28px;padding:4px 7px;margin:0;font-size:11px;line-height:1.4;letter-spacing:.02em;white-space:nowrap}
+
+/* Three card sizes share the same recipes, controls and loaded image elements. */
+.recipe-navigation-row{display:flex;align-items:center;gap:20px;flex-wrap:wrap}.recipe-navigation-row>.meal-plan-pages{flex:1;min-width:0}
+.recipe-view-controls{display:flex;align-items:center;gap:4px;font-size:12px;flex-shrink:0}.recipe-view-controls[hidden]{display:none}.recipe-view-controls>span{margin-right:5px}.recipe-view-controls button{padding:7px 10px;border:1px solid #000;background:#fff;font:inherit;box-shadow:none}.recipe-view-controls button[aria-pressed=true]{background:var(--orchid);font-weight:600}.recipe-view-controls button:hover{background:var(--pink);box-shadow:none}.recipe-view-controls button:focus-visible{outline:2px solid var(--burgundy);outline-offset:3px}
+#recipes-view[data-recipe-density=medium] .recipe-grid:not(.cookbook-grid){column-count:4;column-gap:16px}
+#recipes-view[data-recipe-density=medium] .recipe-card .recipe-image{height:165px}
+#recipes-view[data-recipe-density=medium] .recipe-card .card-body{padding:13px;gap:8px}
+#recipes-view[data-recipe-density=medium] .recipe-card h3{font-size:18px}
+#recipes-view[data-recipe-density=miniature] .recipe-grid:not(.cookbook-grid){column-count:6;column-gap:12px}
+#recipes-view[data-recipe-density=miniature] .recipe-card .recipe-image{height:105px}
+#recipes-view[data-recipe-density=miniature] .recipe-card .card-body{padding:10px;gap:5px}
+#recipes-view[data-recipe-density=miniature] .recipe-card h3{font-size:14px;line-height:1.25;margin-top:5px}
+#recipes-view[data-recipe-density=miniature] .recipe-card :is(.recipe-tags,.card-ratings){display:none!important}
+#recipes-view[data-recipe-density=miniature] .recipe-card .creator-attribution{font-size:10px;gap:4px;margin-bottom:3px}
+#recipes-view[data-recipe-density=miniature] .creator-attribution img,#recipes-view[data-recipe-density=miniature] .creator-avatar-fallback{width:18px;height:18px;flex-basis:18px;font-size:8px}
+#recipes-view[data-recipe-density=miniature] .card-meta{font-size:10px;gap:4px;flex-wrap:wrap}
+#recipes-view[data-recipe-density=miniature] .card-meta .app-icon{width:12px;height:12px}
+#recipes-view[data-recipe-density=miniature] .card-body>.round-btn{width:26px;height:26px;min-width:26px;min-height:26px;padding:4px}
+#recipes-view[data-recipe-density=miniature] .card-body>.round-btn .app-icon{width:16px;height:16px}
+#recipes-view[data-recipe-density=miniature] .recipe-card .compat{display:inline-flex;align-items:center;font-size:9px;line-height:1.3;padding:4px 6px;gap:4px;top:auto;bottom:8px;left:8px;max-width:calc(100% - 16px);white-space:nowrap}.compat-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
+#recipes-view[data-recipe-density=miniature] .recipe-card .compat .app-icon{width:14px;height:14px}
+#recipes-view[data-recipe-density=miniature] .recipe-card-actions{top:8px;right:8px}
+@media(max-width:1100px){#recipes-view[data-recipe-density=medium] .recipe-grid:not(.cookbook-grid){column-count:3}#recipes-view[data-recipe-density=miniature] .recipe-grid:not(.cookbook-grid){column-count:4}}
+@media(max-width:900px){#recipes-view[data-recipe-density=medium] .recipe-grid:not(.cookbook-grid){column-count:2}#recipes-view[data-recipe-density=miniature] .recipe-grid:not(.cookbook-grid){column-count:3}}
+@media(max-width:540px){.recipe-navigation-row{gap:12px}.recipe-navigation-row>.meal-plan-pages{flex-basis:100%}.recipe-view-controls button{min-height:40px}#recipes-view[data-recipe-density=miniature] .recipe-grid:not(.cookbook-grid){column-count:2}#recipes-view[data-recipe-density=medium] .recipe-card .recipe-image{height:140px}#recipes-view[data-recipe-density=medium] .recipe-card .card-body{padding:10px;gap:5px}#recipes-view[data-recipe-density=medium] .recipe-card h3{font-size:16px}}

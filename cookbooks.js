@@ -76,7 +76,7 @@ export function createCookbooks({supabase,escapeHtml:e,session,hydrate,mapRecipe
  if(alive(version)&&root()?.closest('.active')&&location.hash.includes('/cookbooks'))await render();
  });d.querySelector('[data-cookbook-create-inline]').onclick=()=>{const checked=[...d.querySelectorAll('[name="books"]:checked')].map(n=>n.value);d.close();editor('',async id=>{await picker(recipeId,id);const next=document.querySelector('#cookbook-dialog');for(const input of next?.querySelectorAll('[name="books"]')||[])input.checked=checked.includes(input.value)||input.value===id})};
  }catch(error){if(alive(version))dialog('Cookbooks unavailable',`<p>${e(errorText(error))}</p>`,'Close',async()=>{})}}
- async function click(event){const b=event.target.closest('[data-cookbook-add],[data-cookbook-open],[data-cookbook-new],[data-cookbook-edit],[data-cookbook-delete],[data-cookbook-remove],[data-cookbook-browse]');if(!b||event.target.closest('[data-visit-profile]'))return;event.preventDefault();event.stopImmediatePropagation();
+ async function click(event){const b=event.target.closest('[data-cookbook-add],[data-cookbook-open],[data-cookbook-new],[data-cookbook-edit],[data-cookbook-delete],[data-cookbook-remove],[data-cookbook-browse]');if(!b||event.target.closest('[data-visit-profile],[data-profile-privacy],.profile-card-privacy'))return;event.preventDefault();event.stopImmediatePropagation();
  try{
  if(b.hasAttribute('data-cookbook-add'))return await picker(b.dataset.cookbookAdd);
  if(b.hasAttribute('data-cookbook-open')){selected=b.dataset.cookbookOpen;history.pushState(null,'',selected?'#/cookbook/'+selected:'#/recipes/cookbooks');return openCookbook(selected)}

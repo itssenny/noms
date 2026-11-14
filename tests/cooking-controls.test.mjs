@@ -2,8 +2,8 @@ import test from 'node:test';import assert from 'node:assert/strict';import vm f
 const source=await readFile(new URL('../app.js',import.meta.url),'utf8');
 test('Start cooking dispatches cooking and never the deletion prompt',async()=>{
  let handler,started,deleted=false;const c=vm.createContext({document:{addEventListener:(_type,fn)=>handler=fn},cooking:(...args)=>started=args,modal:()=>deleted=true});
- const start=source.indexOf("document.addEventListener('click',async e=>{let peek=");vm.runInContext(source.slice(start,source.indexOf('\n',start)),c);
- await handler({target:{closest:selector=>selector==='[data-start]'?{dataset:{start:'recipe',servings:'2'}}:null}});assert.deepEqual(started,['recipe','2',undefined]);assert.equal(deleted,false);
+ const start=source.indexOf("document.addEventListener('click',async e=>{");vm.runInContext(source.slice(start,source.indexOf('\n',start)),c);
+ await handler({composedPath:()=>[],target:{closest:selector=>selector==='[data-start]'?{dataset:{start:'recipe',servings:'2'}}:null}});assert.deepEqual(started,['recipe','2',undefined]);assert.equal(deleted,false);
 });
 function checkin(choice='inactive'){
  const original={ingredientId:'rice',qty:100,unit:'g',location:'Pantry',threshold:20,isActive:true},writes=[],messages=[];
