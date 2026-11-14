@@ -1,0 +1,335 @@
+{
+  "name": "Noms",
+  "version": 3,
+  "units": {
+    "length": "logical pixels (CSS px on web; density-independent units on native)",
+    "fontSize": "logical pixels; allow native accessibility scaling"
+  },
+  "colors": {
+    "white": "#FFFFFF",
+    "ink": "#000000",
+    "lavender": "#CAB7FB",
+    "pink": "#F5CCE1",
+    "lime": "#E5ED66",
+    "burgundy": "#78182F",
+    "divider": "#E6E6E6",
+    "interactionTint": "#F8F5FF",
+    "pickPink": "#F5D9EA",
+    "pickLavender": "#D6C5FF",
+    "pickRose": "#F2D1DF",
+    "whiteVeil": "#FFFFFFB8",
+    "whiteFrame": "#FFFFFF80",
+    "inkLine": "#00000024",
+    "burgundyLine": "#78182F40"
+  },
+  "typography": {
+    "headingFamily": "Outfit",
+    "bodyFamily": "Manrope",
+    "roles": {
+      "recipeTitle": {
+        "size": 52,
+        "compactSize": 34,
+        "weight": 500,
+        "lineHeight": 1.05
+      },
+      "pageTitle": {
+        "size": 44,
+        "compactSize": 28,
+        "weight": 500,
+        "lineHeight": 1.12
+      },
+      "sectionTitle": {
+        "size": 26,
+        "weight": 500,
+        "lineHeight": 1.15
+      },
+      "homeSectionTitle": {
+        "size": 36,
+        "compactSize": 32,
+        "weight": 500,
+        "lineHeight": 1.1
+      },
+      "pickTitle": {
+        "size": 36,
+        "compactSize": 30,
+        "weight": 500,
+        "lineHeight": 1.04
+      },
+      "galleryTitle": {
+        "size": 19,
+        "compactSize": 17,
+        "weight": 500,
+        "lineHeight": 1.15
+      },
+      "reading": {
+        "size": 14,
+        "weight": 400,
+        "lineHeight": 1.8
+      },
+      "body": {
+        "size": 14,
+        "weight": 400,
+        "lineHeight": 1.5
+      },
+      "button": {
+        "size": 13,
+        "weight": 500,
+        "lineHeight": 1.3
+      },
+      "metadata": {
+        "size": 11,
+        "weight": 400,
+        "lineHeight": 1.6
+      },
+      "editorialLabel": {
+        "size": 11,
+        "weight": 400,
+        "lineHeight": 1.4
+      },
+      "pickIndex": {
+        "size": 10,
+        "weight": 600,
+        "lineHeight": 1.4
+      },
+      "stepNumber": {
+        "size": 28,
+        "weight": 500,
+        "lineHeight": 1.25
+      }
+    }
+  },
+  "spacing": [
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64
+  ],
+  "geometry": {
+    "majorCornerRadius": 0,
+    "controlCornerRadius": 0,
+    "borderWidth": 1,
+    "focusWidth": 2,
+    "focusOffset": 4,
+    "targetMin": 44,
+    "nativeTargetMin": 48
+  },
+  "buttons": {
+    "primary": {
+      "fill": "lavender",
+      "text": "ink",
+      "border": null,
+      "hoverFill": "ink",
+      "hoverText": "white"
+    },
+    "cookingPrimary": {
+      "fill": "burgundy",
+      "text": "white",
+      "border": "burgundy",
+      "hoverFill": "ink"
+    },
+    "secondary": {
+      "fill": "white",
+      "text": "ink",
+      "border": "inkLine"
+    },
+    "text": {
+      "fill": null,
+      "text": "ink"
+    },
+    "padding": {
+      "vertical": 12,
+      "horizontal": 18
+    },
+    "heroSecondary": {
+      "fill": "whiteVeil",
+      "text": "ink",
+      "border": "burgundyLine",
+      "hoverFill": "white"
+    }
+  },
+  "images": {
+    "detailAspectRatio": 1,
+    "homeGalleryAspectRatio": 1.5,
+    "compactGalleryAspectRatio": 1.4,
+    "fit": "cover",
+    "preserveSavedFraming": true,
+    "blur": 0,
+    "detailFrame": {
+      "offset": 8,
+      "fill": "whiteFrame",
+      "borderWidth": 5,
+      "borderColor": "white"
+    },
+    "pickFrame": {
+      "borderWidth": 5,
+      "borderColor": "white",
+      "offset": 7,
+      "offsetColor": "#FFFFFF80"
+    },
+    "galleryFrame": {
+      "offset": 4,
+      "alternatingColors": [
+        "pink",
+        "lavender"
+      ]
+    }
+  },
+  "editorialRule": {
+    "width": 24,
+    "height": 1,
+    "color": "burgundy",
+    "labelGap": 10
+  },
+  "gradients": {
+    "nomsPick": {
+      "type": "linear",
+      "angleDegrees": 125,
+      "stops": [
+        {
+          "offset": 0,
+          "color": "#F5D9EA"
+        },
+        {
+          "offset": 0.56,
+          "color": "#D6C5FF"
+        },
+        {
+          "offset": 1,
+          "color": "#F2D1DF"
+        }
+      ]
+    },
+    "heroLavender": {
+      "type": "linear",
+      "angleDegrees": 125,
+      "stops": [
+        {
+          "offset": 0,
+          "color": "#F5D8E9"
+        },
+        {
+          "offset": 0.56,
+          "color": "#E0CCFA"
+        },
+        {
+          "offset": 1,
+          "color": "#EADDF8"
+        }
+      ]
+    },
+    "heroPink": {
+      "type": "linear",
+      "angleDegrees": 125,
+      "stops": [
+        {
+          "offset": 0,
+          "color": "#F9DDEB"
+        },
+        {
+          "offset": 0.56,
+          "color": "#F0BFD9"
+        },
+        {
+          "offset": 1,
+          "color": "#EEDAF5"
+        }
+      ]
+    },
+    "heroLime": {
+      "type": "linear",
+      "angleDegrees": 125,
+      "stops": [
+        {
+          "offset": 0,
+          "color": "#F6F8D9"
+        },
+        {
+          "offset": 0.56,
+          "color": "#E5ED66"
+        },
+        {
+          "offset": 1,
+          "color": "#EEF3B1"
+        }
+      ]
+    }
+  },
+  "layering": {
+    "photoFrame": 0,
+    "photo": 1,
+    "content": 1,
+    "menu": 5,
+    "pickOffset": {
+      "x": -10,
+      "y": -8
+    },
+    "largeDropShadows": false
+  },
+  "interaction": {
+    "focusColor": "burgundy",
+    "hoverTitleUnderline": true,
+    "hoverMotion": false,
+    "reducedMotion": true,
+    "disabledOpacity": 0.5,
+    "selectedMeasurementFill": "lavender"
+  },
+  "web": {
+    "stylesheets": [
+      "styles.css",
+      "atelier.css",
+      "design-tokens.css",
+      "identity.css"
+    ],
+    "generatedTokenStylesheet": "design-tokens.css",
+    "tokenGenerator": "scripts/design_tokens.rb",
+    "note": "Run ruby scripts/design_tokens.rb after editing these tokens; the normal build runs it automatically."
+  },
+  "surfaces": {
+    "page": "white",
+    "recipeHero": "recipe-tone gradient",
+    "homeMealPlanner": "heroLime",
+    "recipeCards": "adaptive gradient from the existing recipe color",
+    "discoverSearch": "heroLavender",
+    "profileBanner": "nomsPick",
+    "recipeEditorHeading": "heroLavender",
+    "workingAreas": "white inputs, ingredient rows and directions",
+    "privateFeedback": "heroPink",
+    "publicComments": "heroLavender",
+    "cookbookCards": "nomsPick",
+    "cookbookHeading": "nomsPick",
+    "oftenBought": "heroLavender",
+    "inventoryInStock": "heroLime",
+    "inventoryLowStock": "heroLavender",
+    "inventoryOutOfStock": "heroPink"
+  },
+  "adaptiveGradients": {
+    "recipeCard": {
+      "type": "linear",
+      "angleDegrees": 135,
+      "baseColor": "existing recipe color",
+      "stops": [
+        {
+          "offset": 0,
+          "basePercent": 18,
+          "mixWith": "white"
+        },
+        {
+          "offset": 0.6,
+          "basePercent": 55,
+          "mixWith": "white"
+        },
+        {
+          "offset": 1,
+          "basePercent": 35,
+          "mixWith": "white"
+        }
+      ]
+    }
+  }
+}

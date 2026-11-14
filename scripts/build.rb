@@ -1,11 +1,13 @@
 require 'fileutils'
 require 'json'
+require_relative 'design_tokens'
+write_design_tokens
 
 FileUtils.rm_rf('dist')
 FileUtils.mkdir_p('dist/db')
 FileUtils.mkdir_p('dist/server')
 FileUtils.mkdir_p('dist/.openai')
-%w[index.html styles.css atelier.css ui.js category-colours.js ingredient-defaults.js list-models.mjs stock-model.mjs shopping-extra.mjs feedback.mjs gallery.mjs substitutions.js planning.mjs app.js catalogue.js calendar.mjs cookbooks.js account-state.mjs cooking.mjs cover-framing.mjs crop-geometry.mjs recipe-tags.mjs cover-editor.js measurements.mjs measurement-data.js ingredients.js auth.js profile.js profile-cards.mjs supabase-client.js supabase-config.example.js ARCHITECTURE.md MEASUREMENTS.md].each{|f|FileUtils.cp(f,"dist/#{f}")}
+%w[index.html styles.css atelier.css design-tokens.css identity.css ui.js category-colours.js ingredient-defaults.js list-models.mjs stock-model.mjs shopping-extra.mjs feedback.mjs gallery.mjs substitutions.js planning.mjs app.js catalogue.js calendar.mjs cookbooks.js account-state.mjs cooking.mjs cover-framing.mjs crop-geometry.mjs recipe-tags.mjs cover-editor.js measurements.mjs measurement-data.js ingredients.js auth.js profile.js profile-cards.mjs supabase-client.js supabase-config.example.js ARCHITECTURE.md MEASUREMENTS.md].each{|f|FileUtils.cp(f,"dist/#{f}")}
 
 supabase_url = ENV['SUPABASE_URL']
 supabase_publishable_key = ENV['SUPABASE_PUBLISHABLE_KEY']
