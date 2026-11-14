@@ -38,7 +38,7 @@ export const supabase={
  await page.locator('#discover-search-form input').fill('abc234');await page.locator('#discover-search-form button').click();await page.locator('[data-discover-status]').getByText('1 recipes shown').waitFor();
  await page.screenshot({path:path.join(screenshots,'discover-desktop.png'),fullPage:true});
  await page.locator('[data-discover-results] .recipe-card').click();await page.locator('[data-copy-recipe-code="ABC234"]').waitFor();assert.equal(await page.locator('[data-edit-recipe]').count(),0);assert.equal(await page.locator('.personal-feedback').count(),0);
- await page.locator('[data-save-recipe]').click();await page.getByRole('button',{name:'Remove from Saved',exact:true}).waitFor();
+ await page.locator('[data-save-recipe]').click();await page.getByRole('button',{name:'Unsave recipe',exact:true}).waitFor();
  await page.locator('[data-view="recipes"]').first().click();await page.locator('#all-recipes').getByText('My rice bowl',{exact:true}).waitFor();assert.equal(await page.locator('#all-recipes').getByText('Miso chickpea crunch bowls',{exact:true}).count(),0);
  await page.locator('#recipe-page-navigation [data-recipe-page="saved"]').click();await page.locator('#all-recipes').getByText('Miso chickpea crunch bowls',{exact:true}).waitFor();
  await page.locator('#recipes-view [data-import-recipe]').click();await page.locator('[name="import-url"]').fill('https://recipes.example/bowl');await page.locator('#modal-form .primary-btn').click();
